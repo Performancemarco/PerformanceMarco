@@ -349,8 +349,8 @@ async function goalSt(id, st) { const r = await DB.from('goals').update({status:
 async function goalDel(id) { if (!confirm('¿Eliminar objetivo?')) return; const r = await DB.from('goals').delete().eq('id', id); if (r.error) toast(r.error.message); else refresh(); }
 /* ===== PROGRESO (DEPORTISTA) ===== */
 VIEWS.prog = async () => {
- const [ev, vol, LD] = await Promise.all([getEval(ME.id), volBlock(ME.id), getLoad(ME.id)]);
- return `<div class="flex items-center justify-between"><h2 class="text-lg font-black">Mi progreso</h2><button class="btn2 text-sm" onclick="makePdf('${ME.id}')">Descargar informe PDF</button></div>` + vol + evalBlock(ev, false) + loadBlock(LD[ME.id]);
+ const [ev, LD] = await Promise.all([getEval(ME.id), getLoad(ME.id)]);
+ return `<div class="flex items-center justify-between"><h2 class="text-lg font-black">Mi progreso</h2><button class="btn2 text-sm" onclick="makePdf('${ME.id}')">Descargar informe PDF</button></div>` + evalBlock(ev, false) + loadBlock(LD[ME.id]);
 };
 function loadBlock(L, coach) {
  const t = today(), a = acwrAt(L, t), z = acwrZone(a && a.r), m = monotony(L, t), wk = weekly(L, 8), cur = wk[wk.length - 1].v;
@@ -722,7 +722,7 @@ async function link(e) { e.preventDefault(); const r = await DB.rpc('link_athlet
 async function arch(id, v) { if (v && !confirm('¿Cortar el acceso a este deportista?\n\nNo podrá entrar, ver su plan ni registrar nada. Tú conservas todos sus datos y puedes reactivarlo cuando quieras.')) return; const r = await DB.rpc('set_archived', {p_athlete: id, p_archived: v}); if (r.error) toast(r.error.message); else refresh(); }
 const FS = [['res', 'Resumen'], ['carga', 'Carga'], ['bien', 'Bienestar'], ['cuerpo', 'Cuerpo'], ['cal', 'Calendario'], ['eval', 'Evaluaciones'], ['fuerza', 'Fuerza'], ['les', 'Lesiones'], ['obj', 'Objetivos'], ['sem', 'Semana'], ['notas', 'Notas']];
 async function ficha() {
- const id = S.fa, t = today(), pf = await q(DB.from('profiles').select('id,full_name,email,modes').eq('id', id).single()), det = await getDet(id), caR = await q(DB.from('coach_athletes').select('rec_auto').eq('athlete_id', id).maybeSingle()), recOff = !!(caR && caR.rec_auto === false), sOnly = isSaludOnly(pf); if (sOnly && S.fs == 'eval') S.fs = 'res';
+ const id = S.fa, t = today(), pf = await q(DB.from('profiles').select('id,full_name,email,modes').eq('id', id).single()), det = await getDet(id), caR = await q(DB.from('coach_athletes').select('rec_auto').eq('athlete_id', id).maybeSingle()), recOff = !!(caR && caR.rec_auto === false), sOnly = isSaludOnly(pf), rOnly = !amodes(pf).includes('salud'); if (sOnly && S.fs == 'eval') S.fs = 'res'; if (rOnly && S.fs == 'fuerza') S.fs = 'res';
  const wa = waLink(det.phone, `Hola ${(pf.full_name || '').split(' ')[0]}, `);
  let body = '';
  if (S.fs == 'res') {
@@ -754,7 +754,7 @@ async function ficha() {
  }
  return `<div class="card"><div class="flex items-center gap-3"><button class="btn2" onclick="S.fa=null;go('clients')" aria-label="Volver">‹</button><span class="w-12 h-12 rounded-full grid place-content-center font-black text-lg shrink-0" style="background:linear-gradient(135deg,#e63946,#8b5cf6)">${esc(ini(pf))}</span><div class="flex-1 min-w-0"><p class="text-lg font-black truncate">${esc(nm(pf))}</p><p class="text-xs text-zinc-400 truncate">${[det.sport, det.position, det.level, age(det.birth_date) ? age(det.birth_date) + ' años' : '', det.height_cm ? det.height_cm + ' cm' : '', det.weight_kg ? det.weight_kg + ' kg' : ''].filter(Boolean).map(esc).join(' · ') || esc(pf.email)}</p></div></div>
  <div class="flex gap-2 mt-3 flex-wrap">${wa ? `<a class="btn3 text-sm" target="_blank" rel="noopener" href="${wa}">WhatsApp</a>` : ''}<button class="btn2 text-sm" onclick="makePdf('${id}')">Informe PDF</button><button class="btn2 text-sm" onclick="csvExport('${id}')">Exportar datos (CSV)</button>${sOnly ? '' : `<button class="btn2 text-sm" onclick="recAutoSet('${id}',${recOff})">Recuperación automática: ${recOff ? 'No' : 'Sí'}</button>`}<button class="btn2 text-sm" onclick="modesSheet('${id}',${esc(JSON.stringify(pf.modes || ['rendimiento'])).replace(/&quot;/g, "'")})">Perfil: ${(pf.modes || ['rendimiento']).map(k => k == 'salud' ? 'Salud' : 'Rendimiento').join(' + ')}</button></div></div>
- <div class="scr flex gap-2 -mx-4 px-4">${FS.filter(f => !(sOnly && f[0] == 'eval')).map(f => `<button class="sub ${S.fs == f[0] ? 'on' : ''}" onclick="S.fs='${f[0]}';refresh()">${f[1]}</button>`).join('')}</div>${body}`;
+ <div class="scr flex gap-2 -mx-4 px-4">${FS.filter(f => !(sOnly && f[0] == 'eval') && !(rOnly && f[0] == 'fuerza')).map(f => `<button class="sub ${S.fs == f[0] ? 'on' : ''}" onclick="S.fs='${f[0]}';refresh()">${f[1]}</button>`).join('')}</div>${body}`;
 }
 async function noteSave() { const b = $('#cn').value.trim(); if (!b) return; const r = await DB.from('coach_notes').insert({athlete_id: S.fa, coach_id: ME.id, body: b}); if (r.error) toast(r.error.message); else refresh(); }
 async function noteDel(id) { if (!confirm('¿Eliminar la nota?')) return; const r = await DB.from('coach_notes').delete().eq('id', id); if (r.error) toast(r.error.message); else refresh(); }
