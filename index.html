@@ -295,7 +295,8 @@ function anRig(p) {
  if (p.hand || p.hr) { const h = p.hand || [P.Sh[0] + p.hr[0], P.Sh[1] + p.hr[1]], d = Math.hypot(h[0] - P.Sh[0], h[1] - P.Sh[1]), k = d > 57.9 ? 57.9 / d : 1; P.E = anIK(P.Sh, h, 30, 28, p.es === undefined ? 1 : p.es); P.W = [P.Sh[0] + (h[0] - P.Sh[0]) * k, P.Sh[1] + (h[1] - P.Sh[1]) * k]; }
  else if (p.er) { P.E = [P.Sh[0] + p.er[0], P.Sh[1] + p.er[1]]; P.W = anV(P.E, 28, p.fa); }
  else { P.E = anV(P.Sh, 30, p.ua); P.W = anV(P.E, 28, p.fa); }
- if (p.f2) { P.A2 = p.f2; P.K2 = anIK(Hp, p.f2, 44, 44, p.k2 === undefined ? -1 : p.k2); }
+ if (p.t2 !== undefined) { P.K2 = anV(Hp, 44, p.t2); P.A2 = anV(P.K2, 44, p.s2); }
+ else if (p.f2) { P.A2 = p.f2; P.K2 = anIK(Hp, p.f2, 44, 44, p.k2 === undefined ? -1 : p.k2); }
  P.toe = p.toe || (p.fs ? [A[0] + 13 * (A[0] - K[0]) / 44, A[1] + 13 * (A[1] - K[1]) / 44] : [A[0] + 17 * Math.cos((p.ft || 0) * anR), A[1] - 17 * Math.sin((p.ft || 0) * anR)]);
  return P; }
 const anPl = (p, r = 11) => `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${r}" fill="rgba(230,57,70,.18)" stroke="#e63946" stroke-width="3"/><circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.2" fill="#e63946"/>`,
@@ -324,10 +325,10 @@ const ANX = {
   ph: anPh(['Abajo: la parte alta de la espalda apoyada en el banco, barbilla algo metida, pies firmes.', 'Empuja el suelo con los talones y sube la cadera.', 'Arriba: cadera estirada del todo, glúteos apretados, espinillas verticales.', 'Baja la cadera controlando, sin soltarte de golpe.']),
   tips: ['Apoya los omóplatos en el borde del banco.', 'Mira al frente, con la barbilla algo hacia el pecho.', 'Arriba aprieta los glúteos sin arquear la zona lumbar.', 'Las espinillas quedan verticales arriba.'], err: ['Arquear mucho la espalda baja arriba.', 'Pies demasiado lejos o demasiado cerca.', 'Empujar con la punta del pie en vez del talón.']},
  kickback: {t: 'Patada de glúteo en polea', vb: '-95 -190 190 200', la: 'Pierna recogida', lb: 'Pierna atrás',
-  a: {hip: [-5, -86], foot: [0, 0], tr: 30, hand: [50, -106], es: 1, f2: [8, -5], k2: -1}, b: {hip: [-5, -86], foot: [0, 0], tr: 30, hand: [50, -106], es: 1, f2: [-62, -50], k2: -1},
-  bg: P => anLn([62, 0], [62, -150], '#3f3f46', 5), fg: (P, p) => anCab(P.A2, [80, -12]) + `<circle cx="${P.A2[0]}" cy="${P.A2[1]}" r="4" fill="none" stroke="#f97316" stroke-width="2"/>`,
-  ph: anPh(['Inicio: de pie, apoyado en la máquina, tronco algo inclinado y pierna cerca de la otra.', 'Lleva la pierna hacia atrás estirando la cadera, sin balancear el tronco.', 'Arriba: glúteo apretado, tronco quieto.', 'Vuelve despacio sin soltar la tensión del cable.']),
-  tips: ['Apóyate en la máquina y mantén el tronco firme.', 'El movimiento sale de la cadera, no de la zona lumbar.', 'Aprieta el glúteo arriba un instante.', 'Controla la vuelta, no dejes que el cable tire de ti.'], err: ['Arquear la espalda para subir más la pierna.', 'Balancear el cuerpo.', 'Dejar caer la pierna al volver.']},
+  a: {hip: [-5, -86], foot: [0, 0], tr: 45, hd: 38, hand: [68, -100], es: 1, t2: 172, s2: 207}, b: {hip: [-5, -86], foot: [0, 0], tr: 45, hd: 38, hand: [68, -100], es: 1, t2: 228, s2: 263},
+  bg: P => anLn([74, 0], [74, -150], '#3f3f46', 5), fg: (P, p) => anCab(P.A2, [90, -12]) + `<circle cx="${P.A2[0]}" cy="${P.A2[1]}" r="4" fill="none" stroke="#f97316" stroke-width="2"/>`,
+  ph: anPh(['Inicio: de pie, apoyado en la máquina, tronco inclinado hacia delante y la pierna de trabajo semiflexionada.', 'Lleva la pierna hacia atrás con la rodilla semiflexionada, siempre con el mismo ángulo, sin balancear el tronco.', 'Arriba: glúteo apretado, tronco quieto.', 'Vuelve despacio sin soltar la tensión del cable.']),
+  tips: ['Apóyate en la máquina y mantén el tronco firme.', 'El movimiento sale de la cadera, no de la zona lumbar.', 'Mantén la rodilla semiflexionada, sin doblarla más al subir.', 'Aprieta el glúteo arriba un instante.'], err: ['Arquear la espalda para subir más la pierna.', 'Doblar más la rodilla al subir.', 'Dejar caer la pierna al volver.']},
  bulgara: {t: 'Sentadilla búlgara', vb: '-110 -172 200 182', la: 'Arriba', lb: 'Abajo',
   a: {hip: [-25, -84], foot: [0, 0], tr: 8, hr: [0, 58], es: 1, f2: [-72, -44], k2: -1}, b: {hip: [-25, -48], foot: [0, 0], tr: 8, hr: [0, 58], es: 1, f2: [-72, -44], k2: -1},
   bg: P => anRc(-104, -44, 44, 6) + anLn([-98, -38], [-98, 0]) + anLn([-66, -38], [-66, 0]), fg: P => anDb(P.W),
