@@ -222,8 +222,31 @@ function medFig(k) {
  return `<svg viewBox="0 0 160 200" class="w-40 h-auto mx-auto block" role="img" aria-label="Esquema de medida"><g stroke="#d4d4d8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none">${b}</g></svg>`; }
 /* ===== MONIGOTE ANIMADO (técnica de ejercicios) ===== */
 const aniN = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''),
- aniKey = name => { const n = aniN(name);
-  if (/rumano|\brdl\b|romanian/.test(n)) return 'rdl';
+ aniKey = name => { const n = aniN(name), T = r => r.test(n);
+  if (T(/rumano|\brdl\b|romanian/)) return 'rdl';
+  if (T(/hip ?th?rust|trhust|empuje de cadera/)) return 'hipthrust';
+  if (T(/kickback/) || (T(/patada/) && T(/glut/))) return 'kickback';
+  if (T(/bulgara/)) return 'bulgara';
+  if (T(/hack/)) return 'hack';
+  if (T(/gemelo|pantorrilla|calf/)) return 'gemelos';
+  if (T(/curl/) && T(/isquio|femoral|tumbad/)) return 'curlisquio';
+  if (T(/peso muerto|deadlift/) && !T(/sumo|una pierna|unilateral/)) return 'pmconv';
+  if (T(/curl/)) { if (T(/martillo|hammer/)) return 'martillo'; if (T(/barra (e)?z/)) return 'curlz'; if (T(/polea/)) return 'curlpolea'; if (T(/flexion de hombro/)) return 'curlflex'; return null; }
+  if (T(/remo/)) { if (T(/pecho apoyado/)) return 'remopecho'; if (T(/polea/)) { if (T(/prono/)) return 'remoprono'; if (T(/neutro/)) return 'remoneutro'; } return null; }
+  if (T(/militar/)) return 'militar';
+  if (T(/pull ?face|face ?pull/)) return 'facepull';
+  if (T(/step ?up/)) return T(/multipower|smith/) ? 'stepmp' : 'stepdb';
+  if (T(/frances/)) return 'frances';
+  if (T(/triceps/) && T(/extension/)) return T(/nuca|overhead/) ? 'tricepsnuca' : T(/polea|pushdown/) ? 'pushdown' : null;
+  if (T(/press/) && T(/inclinad/) && T(/pecho|banca/) && !T(/hombro|militar|mancuerna/)) return 'inclinado';
+  if (T(/apertura/) && !T(/mancuerna/)) return 'aperturas';
+  if (T(/extension/) && T(/cuadriceps|piernas/)) return 'legext';
+  if (T(/jalon/)) return 'jalon';
+  if (T(/dominada/)) return 'dominadas';
+  if (T(/zancada|lunge/) && !T(/bulgara|caminando|lateral/)) return 'zancada';
+  if (T(/elevacion/) && T(/hombro|lateral/) && !T(/frontal/)) return T(/polea/) ? 'lateralpolea' : 'laterales';
+  if (T(/prensa/)) return 'prensa';
+  if (T(/fondo|\bdips?\b/)) return 'fondos';
   if (/sentadilla|squat/.test(n) && !/bulgara|split|zancada|salto|frontal|goblet|copa|sumo|hack|pistol|unilateral|una pierna|isometrica|pared/.test(n)) return 'squat';
   if (/press (de )?(pecho|banca)|press banca|banca plana|bench/.test(n) && !/inclinad|declinad|militar|hombro/.test(n)) return 'bench';
   return null; };
@@ -259,8 +282,196 @@ const ANI = {
   tips: ['Tumbado con los pies firmes en el suelo y los glúteos pegados al banco.', 'Junta y baja los omóplatos, y mantenlos así toda la serie.', 'Muñecas rectas, encima de los codos.', 'Baja en 2-3 segundos y sube con fuerza.'],
   err: ['Rebotar la barra en el pecho.', 'Despegar los glúteos del banco.', 'Abrir los codos a 90º del cuerpo.']}
 };
+/* ===== Motor genérico (de lado, mirando a la derecha). Ángulos en grados desde la vertical hacia arriba, + = hacia delante ===== */
+const anR = Math.PI / 180, anV = (o, l, d) => [o[0] + l * Math.sin(d * anR), o[1] - l * Math.cos(d * anR)];
+function anIK(a, b, l1, l2, s) { const dx = b[0] - a[0], dy = b[1] - a[1], d = Math.hypot(dx, dy) || .01, dd = Math.min(d, l1 + l2 - .01), a1 = (l1 * l1 - l2 * l2 + dd * dd) / (2 * dd), h = Math.sqrt(Math.max(0, l1 * l1 - a1 * a1)), ux = dx / d, uy = dy / d; return [a[0] + ux * a1 - uy * h * s, a[1] + uy * a1 + ux * h * s]; }
+const anLerp = (A, B, e) => Array.isArray(A) ? A.map((v, i) => anLerp(v, B[i], e)) : typeof A == 'number' ? A + (B - A) * e : A;
+function anRig(p) {
+ const P = {}; let A, K, Hp;
+ if (p.sa !== undefined) { A = [p.ax || 0, -(p.ay || 0)]; K = anV(A, 44, p.sa); Hp = anV(K, 44, p.ta); }
+ else { if (p.sh0) { P.Sh = p.sh0; Hp = [p.sh0[0] - 58 * Math.sin(p.tr * anR), p.sh0[1] + 58 * Math.cos(p.tr * anR)]; } else Hp = p.hip;
+  if (p.foot) { A = p.foot; K = anIK(Hp, A, 44, 44, p.kd === undefined ? -1 : p.kd); } else { K = anV(Hp, 44, p.thd); A = anV(K, 44, p.shd); } }
+ P.A = A; P.K = K; P.Hp = Hp; P.Sh = P.Sh || anV(Hp, 58, p.tr); P.Hd = anV(P.Sh, 22, p.hd !== undefined ? p.hd : p.tr * .75);
+ if (p.hand || p.hr) { const h = p.hand || [P.Sh[0] + p.hr[0], P.Sh[1] + p.hr[1]], d = Math.hypot(h[0] - P.Sh[0], h[1] - P.Sh[1]), k = d > 57.9 ? 57.9 / d : 1; P.E = anIK(P.Sh, h, 30, 28, p.es === undefined ? 1 : p.es); P.W = [P.Sh[0] + (h[0] - P.Sh[0]) * k, P.Sh[1] + (h[1] - P.Sh[1]) * k]; }
+ else if (p.er) { P.E = [P.Sh[0] + p.er[0], P.Sh[1] + p.er[1]]; P.W = anV(P.E, 28, p.fa); }
+ else { P.E = anV(P.Sh, 30, p.ua); P.W = anV(P.E, 28, p.fa); }
+ if (p.f2) { P.A2 = p.f2; P.K2 = anIK(Hp, p.f2, 44, 44, p.k2 === undefined ? -1 : p.k2); }
+ P.toe = p.toe || (p.fs ? [A[0] + 13 * (A[0] - K[0]) / 44, A[1] + 13 * (A[1] - K[1]) / 44] : [A[0] + 17 * Math.cos((p.ft || 0) * anR), A[1] - 17 * Math.sin((p.ft || 0) * anR)]);
+ return P; }
+const anPl = (p, r = 11) => `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${r}" fill="rgba(230,57,70,.18)" stroke="#e63946" stroke-width="3"/><circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.2" fill="#e63946"/>`,
+ anDb = (p, r = 6.5) => `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${r}" fill="#e63946" stroke="#18181b" stroke-width="1.5"/>`,
+ anLn = (a, b, c = '#52525b', w = 3) => aniSeg(a, b, c, w),
+ anRc = (x, y, w, h, c = '#3f3f46') => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="${c}"/>`,
+ anCab = (a, b) => `<line x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${b[0]}" y2="${b[1]}" stroke="#a1a1aa" stroke-width="1.6" stroke-dasharray="4 3"/><circle cx="${b[0]}" cy="${b[1]}" r="5" fill="#27272a" stroke="#a1a1aa" stroke-width="2"/>`,
+ anBack = (P, p) => { P.E = anV(P.Sh, 26, p.tr + 205); P.W = [P.Sh[0] - 4, P.Sh[1] - 2]; };
+function anDraw(ex, p) {
+ const P = anRig(p); if (ex.fix) ex.fix(P, p);
+ let s = aniFloor + (ex.bg ? ex.bg(P, p) : '');
+ if (P.A2) s += aniSeg(p.hip || P.Hp, P.K2, '#71717a') + aniSeg(P.K2, P.A2, '#71717a') + aniSeg(P.A2, [P.A2[0] + 14, P.A2[1]], '#71717a');
+ s += aniSeg(P.A, P.toe, '#a1a1aa') + aniSeg(P.A, P.K) + aniSeg(P.K, P.Hp) + aniSeg(P.Hp, P.Sh) + aniHead(P.Hd) + aniSeg(P.Sh, P.E) + aniSeg(P.E, P.W);
+ return s + (ex.fg ? ex.fg(P, p) : '') + aniDot(P.K) + aniDot(P.Hp); }
+/* Vista frontal (elevaciones laterales y aperturas) */
+function anFrBody() { return aniFloor + aniHead([0, -170]) + aniSeg([-17, -146], [17, -146]) + aniSeg([0, -146], [0, -90]) + aniSeg([-10, -90], [10, -90]) + aniSeg([-10, -90], [-13, 0]) + aniSeg([10, -90], [13, 0]) + aniSeg([-13, 0], [-24, 0], '#a1a1aa') + aniSeg([13, 0], [24, 0], '#a1a1aa'); }
+const anArm = (s, a, b) => { const S = [17 * s, -146], E = [S[0] + 30 * s * Math.sin(a * anR), S[1] + 30 * Math.cos(a * anR)], W = [E[0] + 28 * s * Math.sin(b * anR), E[1] + 28 * Math.cos(b * anR)]; return {S, E, W}; };
+const anArmI = (s, h) => { const S = [17 * s, -146], m = anIK([S[0] * s, S[1]], [h[0] * s, h[1]], 30, 28, -1), E = [m[0] * s, m[1]], d = Math.hypot(h[0] - S[0], h[1] - S[1]), k = d > 57.9 ? 57.9 / d : 1; return {S, E, W: [S[0] + (h[0] - S[0]) * k, S[1] + (h[1] - S[1]) * k]}; };
+const anFrArm = (r, c = '#e4e4e7') => aniSeg(r.S, r.E, c) + aniSeg(r.E, r.W, c);
+/* ===== Ejercicios ===== */
+const pz = (a, o) => ({...a, ...o}), STD = {sa: 0, ta: 0, tr: 0}, anPh = (t, d1 = 2.2, d2 = 1.4) => [['a', 'a', .8, t[0]], ['a', 'b', d1, t[1]], ['b', 'b', .6, t[2]], ['b', 'a', d2, t[3]]];
+const ANX = {
+ hipthrust: {t: 'Hip thrust', vb: '-100 -80 200 90', la: 'Abajo', lb: 'Arriba',
+  a: {hip: [-8, -14], foot: [44, 0], tr: -59, hd: -75, hr: [49.7, 29.9]}, b: {hip: [0, -44], foot: [44, 0], tr: -90, hd: -82, hr: [58, 0]},
+  bg: P => anRc(-92, -40, 52, 6) + anLn([-84, -34], [-84, 0]) + anLn([-50, -34], [-50, 0]), fg: P => anPl(P.W, 9),
+  ph: anPh(['Abajo: la parte alta de la espalda apoyada en el banco, barbilla algo metida, pies firmes.', 'Empuja el suelo con los talones y sube la cadera.', 'Arriba: cadera estirada del todo, glúteos apretados, espinillas verticales.', 'Baja la cadera controlando, sin soltarte de golpe.']),
+  tips: ['Apoya los omóplatos en el borde del banco.', 'Mira al frente, con la barbilla algo hacia el pecho.', 'Arriba aprieta los glúteos sin arquear la zona lumbar.', 'Las espinillas quedan verticales arriba.'], err: ['Arquear mucho la espalda baja arriba.', 'Pies demasiado lejos o demasiado cerca.', 'Empujar con la punta del pie en vez del talón.']},
+ kickback: {t: 'Patada de glúteo en polea', vb: '-95 -190 190 200', la: 'Pierna recogida', lb: 'Pierna atrás',
+  a: {hip: [-5, -86], foot: [0, 0], tr: 30, hand: [50, -106], es: 1, f2: [8, -5], k2: -1}, b: {hip: [-5, -86], foot: [0, 0], tr: 30, hand: [50, -106], es: 1, f2: [-62, -50], k2: -1},
+  bg: P => anLn([62, 0], [62, -150], '#3f3f46', 5), fg: (P, p) => anCab(P.A2, [80, -12]) + `<circle cx="${P.A2[0]}" cy="${P.A2[1]}" r="4" fill="none" stroke="#f97316" stroke-width="2"/>`,
+  ph: anPh(['Inicio: de pie, apoyado en la máquina, tronco algo inclinado y pierna cerca de la otra.', 'Lleva la pierna hacia atrás estirando la cadera, sin balancear el tronco.', 'Arriba: glúteo apretado, tronco quieto.', 'Vuelve despacio sin soltar la tensión del cable.']),
+  tips: ['Apóyate en la máquina y mantén el tronco firme.', 'El movimiento sale de la cadera, no de la zona lumbar.', 'Aprieta el glúteo arriba un instante.', 'Controla la vuelta, no dejes que el cable tire de ti.'], err: ['Arquear la espalda para subir más la pierna.', 'Balancear el cuerpo.', 'Dejar caer la pierna al volver.']},
+ bulgara: {t: 'Sentadilla búlgara', vb: '-110 -172 200 182', la: 'Arriba', lb: 'Abajo',
+  a: {hip: [-25, -84], foot: [0, 0], tr: 8, hr: [0, 58], es: 1, f2: [-72, -44], k2: -1}, b: {hip: [-25, -48], foot: [0, 0], tr: 8, hr: [0, 58], es: 1, f2: [-72, -44], k2: -1},
+  bg: P => anRc(-104, -44, 44, 6) + anLn([-98, -38], [-98, 0]) + anLn([-66, -38], [-66, 0]), fg: P => anDb(P.W),
+  ph: anPh(['Inicio: pie de atrás apoyado en el banco, pie de delante adelantado, tronco recto.', 'Baja recto, el peso va sobre la pierna de delante.', 'Abajo: rodilla de delante en línea con el pie, tronco estable.', 'Sube empujando con el pie de delante.']),
+  tips: ['Da un paso largo para que la rodilla de delante no pase mucho la punta del pie.', 'Baja recto, sin tirarte hacia delante.', 'La rodilla de delante sigue la dirección del pie.', 'Casi todo el peso va en la pierna de delante.'], err: ['Pie de delante demasiado cerca del banco.', 'La rodilla se va hacia dentro.', 'Empujar con la pierna de atrás.']},
+ gemelos: {t: 'Elevación de gemelos', vb: '-95 -190 190 200', la: 'Abajo', lb: 'Arriba',
+  a: {sa: 0, ta: 0, tr: 0, ay: 0, toe: [17, 0]}, b: {sa: 0, ta: 0, tr: 0, ay: 12, toe: [17, 0]}, fix: anBack, fg: P => anPl(P.W, 11),
+  ph: anPh(['Inicio: de pie, rodillas casi estiradas, el peso en la parte delantera del pie.', 'Sube sobre las puntas lo más alto que puedas.', 'Arriba: aguanta un segundo apretando los gemelos.', 'Baja despacio hasta estirar bien el gemelo.']),
+  tips: ['Rodillas casi estiradas todo el rato.', 'Sube lo más alto posible, sin doblar las rodillas.', 'Aguanta arriba un segundo.', 'Baja despacio hasta notar el estiramiento.'], err: ['Rebotar sin llegar arriba ni abajo.', 'Doblar las rodillas para ayudarte.', 'Hacerlo muy rápido.']},
+ curlisquio: {t: 'Curl de isquio tumbado', vb: '-100 -110 200 120', la: 'Pierna estirada', lb: 'Talones al glúteo',
+  a: {hip: [0, -46], tr: 90, hd: 80, thd: -90, shd: -90, fs: 1, hr: [12, 4]}, b: {hip: [0, -46], tr: 90, hd: 80, thd: -90, shd: 10, fs: 1, hr: [12, 4]},
+  bg: P => anRc(-62, -40, 130, 6) + anLn([-50, -34], [-50, 0]) + anLn([55, -34], [55, 0]), fg: P => `<circle cx="${P.A[0].toFixed(1)}" cy="${P.A[1].toFixed(1)}" r="5" fill="#a1a1aa"/>`,
+  ph: anPh(['Inicio: boca abajo, rodillas justo en el borde del banco, rodillo en los tobillos.', 'Dobla las rodillas llevando los talones hacia el glúteo.', 'Arriba: isquios apretados, cadera pegada al banco.', 'Baja despacio hasta estirar casi del todo.'], 1.8, 2.2),
+  tips: ['La cadera pegada al banco en todo el recorrido.', 'Dobla las rodillas sin levantar el trasero.', 'Aprieta arriba un instante.', 'Baja más despacio de lo que subes.'], err: ['Levantar la cadera para ayudarte.', 'Dejar caer el peso al bajar.', 'Recorrido corto.']},
+ pmconv: {t: 'Peso muerto convencional', vb: '-95 -190 190 200', la: 'Abajo', lb: 'De pie',
+  a: {hip: [-38, -48], foot: [0, 0], tr: 50, hr: [2, 58], es: 1}, b: {hip: [0, -87], foot: [0, 0], tr: 0, hr: [2, 58], es: 1},
+  bg: P => '', fg: P => anPl([P.W[0], P.W[1] + 5], 22),
+  ph: anPh(['Inicio: barra sobre el medio del pie, espalda recta, hombros sobre la barra.', 'Empuja el suelo con las piernas y sube la barra pegada al cuerpo.', 'Arriba: de pie, cadera estirada, sin echarte hacia atrás.', 'Baja llevando la cadera atrás y la barra pegada a las piernas.'], 2.2, 2.0),
+  tips: ['Barra sobre el medio del pie y pegada a las espinillas.', 'Espalda recta antes de tirar, abdomen firme.', 'Empuja el suelo como si hicieras una prensa.', 'La barra sube y baja pegada al cuerpo.'], err: ['Redondear la espalda.', 'Tirar con los brazos o con la espalda y no con las piernas.', 'Separar la barra del cuerpo.']},
+ curlflex: {t: 'Curl de bíceps con flexión de hombro', vb: '-95 -190 190 200', la: 'Abajo', lb: 'Arriba',
+  a: {...STD, ua: 182, fa: 180}, b: {...STD, ua: 148, fa: 22}, fg: P => anDb(P.W),
+  ph: anPh(['Inicio: brazos estirados junto al cuerpo, mancuernas en las manos.', 'Sube las mancuernas doblando el codo y, al final, llevando el codo un poco hacia delante.', 'Arriba: bíceps apretado, sin balancear el cuerpo.', 'Baja controlando hasta estirar el brazo.']),
+  tips: ['El cuerpo quieto, sin balancearte.', 'Sube doblando el codo y al final adelanta ligeramente el codo.', 'Baja despacio hasta estirar el brazo.', 'Hombros relajados, sin encogerlos.'], err: ['Balancear el tronco para subir.', 'Subir los hombros.', 'Dejar caer el peso al bajar.']},
+ curlpolea: {t: 'Curl de bíceps en polea', vb: '-95 -190 190 200', la: 'Abajo', lb: 'Arriba',
+  a: {...STD, ua: 182, fa: 170}, b: {...STD, ua: 188, fa: 32}, bg: P => anLn([78, 0], [78, -120], '#3f3f46', 5), fg: P => anCab(P.W, [78, -10]) + anDb(P.W, 3.5),
+  ph: anPh(['Inicio: de pie frente a la polea baja, brazos estirados, codos pegados.', 'Sube el agarre doblando el codo, sin mover el hombro.', 'Arriba: bíceps apretado.', 'Baja despacio sin soltar la tensión.']),
+  tips: ['Codos pegados al cuerpo y quietos.', 'Tronco recto, sin balancearte.', 'Aprieta arriba un instante.', 'Baja despacio hasta estirar el brazo.'], err: ['Mover los codos hacia delante.', 'Impulsarte con la espalda.', 'Soltar el peso al bajar.']},
+ remoprono: {t: 'Remo en polea, agarre prono', vb: '-95 -130 220 140', la: 'Brazos estirados', lb: 'Al pecho',
+  a: {hip: [-12, -44], foot: [58, -16], tr: 14, hd: 10, er: [30, 0], fa: 90}, b: {hip: [-12, -44], foot: [58, -16], tr: -6, hd: 0, er: [-22, -3], fa: 90},
+  bg: P => anRc(-34, -40, 44, 6) + anLn([-18, -34], [-18, 0]) + anLn([64, -40], [64, 0], '#52525b', 4) + anLn([118, 0], [118, -90], '#3f3f46', 5), fg: P => anCab(P.W, [118, -48]) + anDb(P.W, 3.5),
+  ph: anPh(['Inicio: sentado, pecho alto, brazos estirados, agarre con las palmas hacia abajo.', 'Tira llevando los codos hacia atrás y altos, juntando los omóplatos.', 'Final: manos al pecho, omóplatos juntos, tronco casi recto.', 'Vuelve estirando los brazos despacio, sin encorvarte.'], 1.6, 1.8),
+  tips: ['Pecho alto y espalda recta.', 'Lleva los codos hacia atrás, a la altura del pecho.', 'Junta los omóplatos al final.', 'No balancees el tronco para tirar.'], err: ['Balancear el tronco hacia atrás.', 'Encoger los hombros.', 'Soltar el peso al volver.']},
+ remoneutro: {t: 'Remo en polea, agarre neutro', vb: '-95 -130 220 140', la: 'Brazos estirados', lb: 'Al abdomen',
+  a: {hip: [-12, -44], foot: [58, -16], tr: 14, hd: 10, er: [30, 0], fa: 90}, b: {hip: [-12, -44], foot: [58, -16], tr: -6, hd: 0, er: [-17, 24], fa: 90},
+  bg: P => anRc(-34, -40, 44, 6) + anLn([-18, -34], [-18, 0]) + anLn([64, -40], [64, 0], '#52525b', 4) + anLn([118, 0], [118, -90], '#3f3f46', 5), fg: P => anCab(P.W, [118, -48]) + anDb(P.W, 3.5),
+  ph: anPh(['Inicio: sentado, pecho alto, brazos estirados, agarre con las palmas enfrentadas.', 'Tira llevando los codos pegados al cuerpo hacia atrás.', 'Final: manos al abdomen, omóplatos juntos.', 'Vuelve estirando los brazos despacio.'], 1.6, 1.8),
+  tips: ['Pecho alto y espalda recta.', 'Codos pegados al cuerpo.', 'Las manos terminan junto al abdomen.', 'No balancees el tronco.'], err: ['Balancear el tronco hacia atrás.', 'Encoger los hombros.', 'Soltar el peso al volver.']},
+ militar: {t: 'Press militar', vb: '-95 -215 190 225', la: 'Barra en hombros', lb: 'Arriba',
+  a: {...STD, hd: 0, ua: 150, fa: 0}, b: {...STD, hd: -25, ua: 14, fa: 10}, fg: P => anPl(P.W, 11),
+  ph: anPh(['Inicio: barra apoyada en la parte alta del pecho, codos algo por delante de la barra.', 'Empuja la barra hacia arriba en línea recta, echando la cabeza un poco atrás para dejarle paso.', 'Arriba: brazos estirados, barra sobre la cabeza y el medio del pie.', 'Baja controlando hasta los hombros.']),
+  tips: ['Abdomen y glúteos apretados, sin arquear la espalda.', 'Muñecas rectas, encima de los codos.', 'La barra sube en línea recta.', 'Termina con la barra sobre la cabeza, no por delante.'], err: ['Arquear mucho la zona lumbar.', 'Empujar la barra hacia delante.', 'Sacar las costillas.']},
+ facepull: {t: 'Face pull', vb: '-95 -190 220 200', la: 'Brazos estirados', lb: 'Cuerda a la cara',
+  a: {...STD, er: [30, -1], fa: 90}, b: {...STD, er: [-24, -6], fa: 75},
+  bg: P => anLn([100, 0], [100, -175], '#3f3f46', 5), fg: P => anCab(P.W, [100, -158]) + anDb(P.W, 3.5),
+  ph: anPh(['Inicio: de pie, cable a la altura de la cara, brazos estirados.', 'Tira de la cuerda hacia la cara, abriendo los codos hacia atrás y arriba.', 'Final: manos junto a las orejas, omóplatos juntos, codos altos.', 'Vuelve despacio, estirando los brazos.']),
+  tips: ['Codos altos, a la altura de los hombros o más.', 'Tira de la cuerda hacia la cara, no hacia el pecho.', 'Junta los omóplatos al final.', 'Poco peso y mucho control.'], err: ['Usar demasiado peso y echarte hacia atrás.', 'Bajar los codos.', 'Tirar solo con los brazos.']},
+ stepmp: {t: 'Step up en multipower', vb: '-95 -235 190 245', la: 'Abajo', lb: 'Arriba',
+  a: {hip: [6, -88], foot: [18, -40], tr: 0, f2: [-24, 0], k2: -1}, b: {hip: [6, -127], foot: [18, -40], tr: 0, f2: [-2, -58], k2: -1},
+  fix: anBack, bg: P => anRc(0, -40, 46, 40, '#3f3f46') + anLn([2, -215], [2, -20], '#52525b', 2), fg: P => anPl(P.W, 11),
+  ph: anPh(['Inicio: un pie completo sobre el cajón, barra apoyada en los hombros, tronco recto.', 'Sube empujando con la pierna del cajón hasta quedar de pie.', 'Arriba: de pie sobre el cajón, cadera estirada.', 'Baja controlando con la misma pierna, sin dejarte caer.'], 1.6, 1.8),
+  tips: ['Todo el pie sobre el cajón.', 'Empuja con la pierna de arriba, no con la de abajo.', 'Tronco recto, sin tirarte hacia delante.', 'Baja despacio y con control.'], err: ['Impulsarte con la pierna de abajo.', 'Poner solo la punta del pie sobre el cajón.', 'Dejarte caer al bajar.']},
+ stepdb: {t: 'Step up con mancuernas', vb: '-95 -230 190 240', la: 'Abajo', lb: 'Arriba',
+  a: {hip: [6, -88], foot: [18, -40], tr: 4, hr: [0, 58], es: 1, f2: [-24, 0], k2: -1}, b: {hip: [6, -127], foot: [18, -40], tr: 4, hr: [0, 58], es: 1, f2: [-2, -58], k2: -1},
+  bg: P => anRc(0, -40, 46, 40, '#3f3f46'), fg: P => anDb(P.W),
+  ph: anPh(['Inicio: un pie completo sobre el cajón, mancuernas a los lados, tronco recto.', 'Sube empujando con la pierna del cajón hasta quedar de pie.', 'Arriba: de pie sobre el cajón, cadera estirada.', 'Baja controlando con la misma pierna.'], 1.6, 1.8),
+  tips: ['Todo el pie sobre el cajón.', 'Empuja con la pierna de arriba, no con la de abajo.', 'Tronco recto y mancuernas a los lados.', 'Baja despacio y con control.'], err: ['Impulsarte con la pierna de abajo.', 'Inclinarte mucho hacia delante.', 'Dejarte caer al bajar.']},
+ inclinado: {t: 'Press de pecho inclinado', vb: '-100 -120 200 130', la: 'Brazos estirados', lb: 'Barra al pecho',
+  a: {hip: [12, -46], foot: [52, 0], tr: -60, hd: -70, h: 58}, b: {hip: [12, -46], foot: [52, 0], tr: -60, hd: -70, h: 14},
+  fix: (P, p) => { const dy = Math.max(-30, Math.min(30, 28 - p.h)), wx = P.Sh[0] + Math.sqrt(900 - dy * dy); P.W = [wx, P.Sh[1] - p.h]; P.E = [wx, P.W[1] + 28]; },
+  bg: P => anLn([P.Hp[0] - 4, P.Hp[1] + 8], [P.Sh[0] - 6, P.Sh[1] + 2], '#3f3f46', 8) + anLn([16, -36], [16, 0], '#3f3f46', 4) + anLn([-40, -62], [-40, 0], '#3f3f46', 4), fg: P => anPl(P.W, 12),
+  ph: anPh(['Arriba: brazos estirados sobre el pecho, hombros hacia atrás y abajo.', 'Baja controlado hasta rozar la parte alta del pecho.', 'Barra en el pecho, sin rebotar.', 'Empuja hacia arriba hasta estirar los brazos.'], 2.2, 1.3),
+  tips: ['Banco a unos 30º de inclinación.', 'Omóplatos juntos y hombros abajo.', 'Muñecas rectas, encima de los codos.', 'Baja en 2-3 segundos y sube con fuerza.'], err: ['Rebotar la barra en el pecho.', 'Despegar los glúteos del banco.', 'Abrir los codos a 90º del cuerpo.']},
+ legext: {t: 'Extensión de cuádriceps', vb: '-95 -120 200 130', la: 'Rodillas dobladas', lb: 'Piernas estiradas',
+  a: {hip: [-12, -46], tr: -6, hd: -4, thd: 88, shd: 185, fs: 1, hr: [6, 52]}, b: {hip: [-12, -46], tr: -6, hd: -4, thd: 88, shd: 92, fs: 1, hr: [6, 52]},
+  bg: P => anRc(-34, -42, 52, 6) + anLn([-6, -36], [-6, 0], '#3f3f46', 4) + anLn([-22, -40], [-30, -100], '#3f3f46', 8), fg: P => `<circle cx="${P.A[0].toFixed(1)}" cy="${P.A[1].toFixed(1)}" r="5" fill="#a1a1aa"/>`,
+  ph: anPh(['Inicio: espalda apoyada, rodillas a 90º, rodillo sobre los tobillos.', 'Estira las rodillas hasta quedar casi rectas.', 'Arriba: cuádriceps apretado un instante.', 'Baja despacio, sin dejar caer el peso.'], 1.8, 2.2),
+  tips: ['Espalda pegada al respaldo y glúteos en el asiento.', 'Estira sin bloquear las rodillas de golpe.', 'Aprieta arriba un instante.', 'Baja despacio.'], err: ['Levantar la cadera del asiento.', 'Usar impulso para subir.', 'Soltar el peso al bajar.']},
+ jalon: {t: 'Jalón al pecho', vb: '-95 -205 190 215', la: 'Brazos estirados', lb: 'Barra al pecho',
+  a: {hip: [-8, -46], foot: [48, -2], tr: -10, hd: -6, hand: [26, -154], es: 1}, b: {hip: [-8, -46], foot: [48, -2], tr: -10, hd: -6, hand: [15, -99], es: 1},
+  bg: P => anRc(-30, -42, 44, 6) + anLn([8, -62], [44, -62], '#52525b', 5) + anLn([-8, -36], [-8, 0], '#3f3f46', 4), fg: P => anCab(P.W, [28, -190]) + anDb(P.W, 3.5),
+  ph: anPh(['Inicio: sentado, brazos estirados, agarre algo más ancho que los hombros.', 'Baja la barra hacia la parte alta del pecho, llevando los codos hacia abajo.', 'Final: barra en el pecho, omóplatos abajo, pecho alto.', 'Sube la barra despacio hasta estirar los brazos.']),
+  tips: ['Inclínate un poco hacia atrás y saca el pecho.', 'Tira con los codos hacia abajo.', 'La barra baja hasta la parte alta del pecho.', 'Sube despacio sin que el peso te levante del asiento.'], err: ['Tirar la barra por detrás de la nuca.', 'Balancearte mucho hacia atrás.', 'Dejar subir el peso de golpe.']},
+ dominadas: {t: 'Dominadas', vb: '-95 -215 190 225', la: 'Colgado', lb: 'Barbilla sobre la barra',
+  a: {sh0: [8, -127], tr: 0, hd: 5, thd: 175, shd: 250, hand: [10, -185], es: 1}, b: {sh0: [8, -176], tr: 0, hd: 5, thd: 175, shd: 250, hand: [10, -185], es: 1},
+  bg: P => anLn([10, -185], [70, -185], '#a1a1aa', 4) + anLn([70, 0], [70, -185], '#3f3f46', 5), fg: P => `<circle cx="10" cy="-185" r="4" fill="#e63946"/>`,
+  ph: anPh(['Inicio: colgado con los brazos estirados, hombros activos, abdomen firme.', 'Tira llevando los codos hacia abajo hasta pasar la barbilla de la barra.', 'Arriba: barbilla por encima de la barra, sin balanceo.', 'Baja despacio hasta estirar los brazos.'], 1.8, 2.2),
+  tips: ['Empieza con los hombros activos, sin dejarte caer en ellos.', 'Tira con los codos hacia abajo.', 'Sube sin balancearte.', 'Baja controlando hasta estirar los brazos.'], err: ['Balancear las piernas para subir.', 'Recorrido corto.', 'Dejarte caer abajo.']},
+ zancada: {t: 'Zancadas con barra', vb: '-95 -215 190 225', la: 'De pie', lb: 'Abajo',
+  a: {hip: [-4, -80], foot: [30, 0], tr: 0, f2: [-38, -3], k2: -1}, b: {hip: [-4, -48], foot: [30, 0], tr: 0, f2: [-38, -3], k2: -1},
+  fix: anBack, fg: P => anPl(P.W, 11),
+  ph: anPh(['Inicio: paso largo, tronco recto, barra sobre los hombros.', 'Baja recto doblando las dos rodillas.', 'Abajo: rodilla de delante sobre el pie y la de atrás cerca del suelo.', 'Sube empujando con la pierna de delante.']),
+  tips: ['Da un paso suficientemente largo.', 'Baja recto, sin inclinar el tronco.', 'La rodilla de delante en línea con el pie.', 'Empuja con el talón de delante para subir.'], err: ['Paso demasiado corto.', 'La rodilla de delante se va hacia dentro.', 'Inclinar el tronco hacia delante.']},
+ martillo: {t: 'Curl martillo', vb: '-95 -190 190 200', la: 'Abajo', lb: 'Arriba',
+  a: {...STD, ua: 182, fa: 180}, b: {...STD, ua: 184, fa: 25}, fg: P => anLn([P.W[0] - 8, P.W[1]], [P.W[0] + 8, P.W[1]], '#e63946', 3) + anDb([P.W[0] - 8, P.W[1]], 4.5) + anDb([P.W[0] + 8, P.W[1]], 4.5),
+  ph: anPh(['Inicio: brazos estirados junto al cuerpo, mancuernas con las palmas hacia el cuerpo.', 'Sube las mancuernas doblando el codo, manteniendo las palmas enfrentadas.', 'Arriba: bíceps y antebrazo apretados.', 'Baja despacio hasta estirar el brazo.']),
+  tips: ['Palmas enfrentadas todo el recorrido, como sujetando un martillo.', 'Codos pegados al cuerpo.', 'Cuerpo quieto.', 'Baja despacio.'], err: ['Balancear el tronco.', 'Mover los codos hacia delante.', 'Soltar el peso al bajar.']},
+ curlz: {t: 'Curl con barra Z', vb: '-95 -190 190 200', la: 'Abajo', lb: 'Arriba',
+  a: {...STD, ua: 182, fa: 180}, b: {...STD, ua: 184, fa: 28}, fg: P => anPl(P.W, 8),
+  ph: anPh(['Inicio: brazos estirados, agarre en las curvas de la barra.', 'Sube la barra doblando el codo, sin mover el hombro.', 'Arriba: bíceps apretado.', 'Baja despacio hasta estirar el brazo.']),
+  tips: ['Codos pegados al cuerpo.', 'Tronco quieto y recto.', 'Aprieta arriba un instante.', 'Baja controlando.'], err: ['Balancear el cuerpo.', 'Adelantar los codos.', 'Soltar la barra al bajar.']},
+ remopecho: {t: 'Remo con pecho apoyado', vb: '-95 -190 190 200', la: 'Brazos estirados', lb: 'Codos atrás',
+  a: {hip: [-24, -85], foot: [-26, 0], tr: 45, hd: 55, ua: 180, fa: 178}, b: {hip: [-24, -85], foot: [-26, 0], tr: 45, hd: 55, ua: 238, fa: 178},
+  bg: P => anLn([P.Hp[0] + 8, P.Hp[1] + 8], [P.Sh[0] + 14, P.Sh[1] + 2], '#3f3f46', 8) + anLn([32, -112], [32, 0], '#3f3f46', 4) + anLn([-4, -74], [-4, 0], '#3f3f46', 4), fg: P => anDb(P.W, 7),
+  ph: anPh(['Inicio: pecho apoyado en el banco inclinado, brazos colgando.', 'Tira llevando los codos hacia atrás y arriba, juntando los omóplatos.', 'Arriba: omóplatos juntos, pecho pegado al banco.', 'Baja despacio hasta estirar los brazos.']),
+  tips: ['El pecho no se despega del banco.', 'Tira con los codos, no con las manos.', 'Junta los omóplatos arriba.', 'Baja despacio hasta estirar.'], err: ['Despegar el pecho del banco.', 'Encoger los hombros.', 'Soltar el peso al bajar.']},
+ prensa: {t: 'Prensa de piernas', vb: '-100 -150 220 160', la: 'Rodillas dobladas', lb: 'Piernas estiradas',
+  a: {hip: [-20, -38], foot: [30, -72], tr: -50, hd: -55, hand: [-12, -56], es: 1, ft: -45}, b: {hip: [-20, -38], foot: [46, -90], tr: -50, hd: -55, hand: [-12, -56], es: 1, ft: -45},
+  bg: P => anLn([P.Hp[0] - 5, P.Hp[1] + 6], [P.Sh[0] - 8, P.Sh[1] - 4], '#3f3f46', 8) + anLn([-38, -32], [-6, -32], '#3f3f46', 5) + anLn([8, -40], [96, -128], '#3f3f46', 3),
+  fg: P => anLn([P.A[0] - 10, P.A[1] - 22], [P.A[0] + 14, P.A[1] + 4], '#71717a', 5),
+  ph: anPh(['Inicio: espalda y glúteos apoyados, rodillas dobladas, pies en la plataforma.', 'Empuja la plataforma hasta estirar las piernas casi del todo.', 'Arriba: piernas estiradas sin bloquear las rodillas.', 'Baja despacio hasta doblar las rodillas.'], 2.0, 2.2),
+  tips: ['Glúteos y espalda siempre pegados al asiento.', 'Rodillas en línea con los pies.', 'No bloquees las rodillas arriba.', 'Baja hasta donde la espalda baja siga pegada.'], err: ['Despegar los glúteos del asiento al bajar.', 'Meter las rodillas hacia dentro.', 'Bloquear las rodillas arriba.']},
+ hack: {t: 'Sentadilla Hack', vb: '-100 -150 200 160', la: 'De pie', lb: 'Abajo',
+  a: {hip: [-2, -82], foot: [46, -8], tr: -28, hd: -20, hr: [10, 50], es: 1, ft: -15}, b: {hip: [15, -50], foot: [46, -8], tr: -28, hd: -20, hr: [10, 50], es: 1, ft: -15},
+  bg: P => anLn([P.Hp[0] - 8, P.Hp[1] + 10], [P.Sh[0] - 14, P.Sh[1] - 8], '#3f3f46', 9) + anLn([-24, -150], [36, -10], '#52525b', 2) + anLn([36, -10], [56, -4], '#52525b', 4),
+  ph: anPh(['Inicio: espalda y hombros apoyados, pies en la plataforma, piernas casi estiradas.', 'Baja doblando las rodillas, sin despegar la espalda.', 'Abajo: rodillas hacia fuera, talones apoyados.', 'Sube empujando la plataforma con todo el pie.']),
+  tips: ['Espalda y hombros pegados al respaldo.', 'Pies a la anchura de los hombros.', 'Rodillas en línea con los pies.', 'Empuja con todo el pie, sin levantar los talones.'], err: ['Levantar los talones.', 'Despegar la espalda.', 'Rodillas hacia dentro.']},
+ pushdown: {t: 'Extensión de tríceps en polea', vb: '-95 -205 190 215', la: 'Codos a 90º', lb: 'Brazos estirados',
+  a: {sa: 0, ta: 0, tr: 6, ua: 186, fa: 88}, b: {sa: 0, ta: 0, tr: 6, ua: 186, fa: 178},
+  bg: P => anLn([50, 0], [50, -200], '#3f3f46', 5), fg: P => anCab(P.W, [38, -192]) + anDb(P.W, 3.5),
+  ph: anPh(['Inicio: codos pegados al cuerpo y doblados a 90º.', 'Estira los codos empujando el agarre hacia abajo.', 'Final: brazos estirados, tríceps apretado, codos quietos.', 'Sube despacio hasta los 90º sin mover los codos.']),
+  tips: ['Codos pegados al cuerpo y quietos.', 'Sólo se mueve el antebrazo.', 'Estira del todo y aprieta el tríceps.', 'Sube controlando, sin que el peso te gane.'], err: ['Separar los codos del cuerpo.', 'Inclinarte para empujar con el peso del cuerpo.', 'Recorrido corto.']},
+ tricepsnuca: {t: 'Extensión de tríceps tras nuca en polea', vb: '-100 -215 190 225', la: 'Codos doblados', lb: 'Brazos estirados',
+  a: {sa: 0, ta: 0, tr: 8, hd: 40, ua: -6, fa: 190}, b: {sa: 0, ta: 0, tr: 8, hd: 40, ua: -6, fa: 352},
+  bg: P => anLn([-62, 0], [-62, -60], '#3f3f46', 5), fg: P => anCab(P.W, [-62, -22]) + anDb(P.W, 3.5),
+  ph: anPh(['Inicio: codos hacia arriba, cerca de la cabeza y doblados, cuerda detrás de la nuca.', 'Estira los codos llevando la cuerda hacia arriba.', 'Final: brazos estirados sobre la cabeza, tríceps apretado.', 'Baja despacio sin abrir los codos.']),
+  tips: ['Codos apuntando arriba y cerca de la cabeza.', 'Sólo se mueven los antebrazos.', 'Abdomen firme, sin arquear la espalda.', 'Baja despacio hasta notar el estiramiento.'], err: ['Abrir los codos hacia los lados.', 'Arquear la espalda baja.', 'Usar demasiado peso y mover los hombros.']},
+ frances: {t: 'Press francés', vb: '-125 -120 200 130', la: 'Brazos estirados', lb: 'Barra a la frente',
+  a: {hip: [0, -48], foot: [44, 0], tr: -90, hd: -84, ua: -8, fa: -8}, b: {hip: [0, -48], foot: [44, 0], tr: -90, hd: -84, ua: -8, fa: -98},
+  bg: P => anRc(-92, -42, 112, 6) + anLn([-84, -36], [-84, 0]) + anLn([10, -36], [10, 0]), fg: P => anPl(P.W, 9),
+  ph: anPh(['Inicio: tumbado, brazos estirados sobre el pecho, agarre algo más estrecho que los hombros.', 'Dobla sólo los codos llevando la barra hacia la frente.', 'Abajo: barra cerca de la frente, codos apuntando arriba.', 'Estira los codos hasta volver arriba.'], 2.0, 1.4),
+  tips: ['Los codos no se abren: apuntan al techo.', 'Sólo se mueven los antebrazos.', 'Baja despacio hasta cerca de la frente.', 'Estira del todo sin bloquear de golpe.'], err: ['Abrir los codos.', 'Bajar la barra sobre la cara en vez de la frente.', 'Mover los hombros para subir.']},
+ fondos: {t: 'Fondos en paralelas', vb: '-95 -190 190 200', la: 'Brazos estirados', lb: 'Abajo',
+  a: {sh0: [5, -153], tr: 14, hd: 8, thd: 175, shd: 245, hand: [5, -95], es: 1}, b: {sh0: [5, -118], tr: 14, hd: 8, thd: 175, shd: 245, hand: [5, -95], es: 1},
+  bg: P => anLn([-12, -95], [28, -95], '#a1a1aa', 4) + anLn([28, -95], [28, 0], '#3f3f46', 5), fg: P => `<circle cx="5" cy="-95" r="3.5" fill="#e63946"/>`,
+  ph: anPh(['Inicio: brazos estirados, hombros bajos, cuerpo ligeramente inclinado.', 'Baja doblando los codos hasta que el brazo quede a unos 90º.', 'Abajo: hombros por debajo o a la altura de los codos, sin hundirte.', 'Empuja las barras hasta estirar los brazos.'], 2.0, 1.4),
+  tips: ['Hombros bajos, lejos de las orejas.', 'Baja hasta unos 90º en el codo, no más.', 'Cuerpo algo inclinado al frente trabaja más el pecho; recto, más el tríceps.', 'Sube sin balancear.'], err: ['Bajar demasiado y hundir los hombros.', 'Abrir mucho los codos.', 'Balancear las piernas.']},
+ laterales: {t: 'Elevación lateral con mancuernas', vb: '-95 -190 190 200', la: 'Brazos abajo', lb: 'Brazos arriba', front: 1, a: {a: 6}, b: {a: 88},
+  draw: p => { const R = anArm(1, p.a, p.a * .92), L = anArm(-1, p.a, p.a * .92); return anFrBody() + anFrArm(L) + anFrArm(R) + anDb(L.W) + anDb(R.W); },
+  ph: anPh(['Inicio: de pie, mancuernas a los lados con los codos ligeramente doblados. (Dibujo de frente.)', 'Sube los brazos hacia los lados hasta la altura de los hombros.', 'Arriba: brazos a la altura de los hombros, sin pasar de ahí.', 'Baja despacio sin dejar caer los brazos.'], 1.8, 2.0),
+  tips: ['Codos ligeramente doblados y algo por delante del cuerpo.', 'Sube hasta la altura de los hombros, no más.', 'No encojas los hombros.', 'Baja despacio.'], err: ['Balancear el cuerpo para subir.', 'Encoger los hombros.', 'Subir los brazos por encima de los hombros.']},
+ lateralpolea: {t: 'Elevación lateral en polea', vb: '-95 -190 190 200', la: 'Brazo abajo', lb: 'Brazo arriba', front: 1, a: {a: 8}, b: {a: 86},
+  draw: p => { const R = anArm(1, p.a, p.a * .92), L = anArm(-1, 5, 3); return anFrBody() + anLn([-70, 0], [-70, -30], '#3f3f46', 5) + anCab(R.W, [-70, -14]) + anFrArm(L) + anFrArm(R) + anDb(R.W, 4); },
+  ph: anPh(['Inicio: de lado a la polea baja, brazo estirado cruzando el cuerpo con el codo ligeramente doblado. (Dibujo de frente.)', 'Sube el brazo hacia el lado hasta la altura del hombro.', 'Arriba: brazo a la altura del hombro, sin encoger.', 'Baja despacio sin soltar la tensión del cable.'], 1.8, 2.0),
+  tips: ['Codo ligeramente doblado.', 'Sube hasta la altura del hombro.', 'Tronco quieto, sin inclinarte.', 'Baja despacio.'], err: ['Impulsarte con el cuerpo.', 'Encoger el hombro.', 'Subir por encima del hombro.']},
+ aperturas: {t: 'Aperturas en polea', vb: '-100 -190 200 200', la: 'Brazos abiertos', lb: 'Manos juntas', front: 1, a: {x: 70, y: -144}, b: {x: 5, y: -112},
+  draw: p => { const R = anArmI(1, [p.x, p.y]), L = anArmI(-1, [-p.x, p.y]); return anFrBody() + anLn([-84, 0], [-84, -176], '#3f3f46', 5) + anLn([84, 0], [84, -176], '#3f3f46', 5) + anCab(R.W, [84, -172]) + anCab(L.W, [-84, -172]) + anFrArm(L) + anFrArm(R) + anDb(L.W, 3.5) + anDb(R.W, 3.5); },
+  ph: anPh(['Inicio: de pie entre las poleas altas, brazos abiertos con los codos algo doblados. (Dibujo de frente.)', 'Junta las manos delante del pecho en un arco, como abrazando un árbol.', 'Final: manos juntas delante del pecho, pecho apretado.', 'Vuelve abriendo los brazos despacio, sin pasar del estiramiento cómodo.'], 1.8, 2.0),
+  tips: ['Codos ligeramente doblados y fijos todo el recorrido.', 'Un pie algo adelantado para estar estable.', 'Haz el arco con el pecho, no empujando con los brazos.', 'Vuelve despacio y controlando.'], err: ['Convertirlo en un press doblando y estirando los codos.', 'Abrir demasiado los brazos y forzar el hombro.', 'Balancear el tronco.']}
+};
+for (const k in ANX) { const ex = ANX[k]; ex.a = ex.a; ex.b = pz(ex.a, ex.b); if (!ex.draw) ex.draw = (p => anDraw(ex, p)); }
+Object.assign(ANI, ANX);
+
 let ANS = null;
-function aniAt(ex, a, b, u) { const A = ex[a], B = ex[b], e = .5 - .5 * Math.cos(Math.PI * u), o = {}; for (const k in A) o[k] = A[k] + (B[k] - A[k]) * e; return o; }
+function aniAt(ex, a, b, u) { const A = ex[a], B = ex[b], e = .5 - .5 * Math.cos(Math.PI * u), o = {}; for (const k in A) o[k] = (k in B) ? anLerp(A[k], B[k], e) : A[k]; return o; }
 function aniStop() { if (ANS && ANS.raf) cancelAnimationFrame(ANS.raf); ANS = null; }
 function aniOpen(key, name) {
  const ex = ANI[key]; if (!ex) return; aniStop();
