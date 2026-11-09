@@ -47,6 +47,7 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
    <span id="sv" class="text-xs text-emerald-400"></span><button class="btn2 text-sm" onclick="DB.auth.signOut()">Salir</button>
   </div>
  </header>
+ <div id="draftbar"></div>
  <main id="view" class="max-w-5xl mx-auto px-4 py-4 space-y-4" style="padding-bottom:110px"></main>
  <nav id="nav" class="fixed bottom-0 inset-x-0 z-40 flex bg-[#101013]/95 backdrop-blur border-t border-zinc-800" style="padding-bottom:env(safe-area-inset-bottom)"></nav>
 </div>
@@ -114,16 +115,45 @@ async function enter(ses) {
  $('#auth').classList.add('hidden'); $('#app').classList.remove('hidden');
  $('#who').textContent = (ME.full_name || ME.email) + ' · ' + (ME.role == 'coach' ? 'Entrenador' : 'Deportista');
  const T = buildNav();
- S.tab = T[0][0]; ED = null; S.fa = null; go(S.tab);
+ ED = null; S.fa = null; const st = navGet(), ok = st && T.some(x => x[0] == st.tab);
+ if (ok) { S.fs = st.fs || 'res'; S.date = st.date || today(); S.cm = st.cm || S.cm; S.blk = st.blk || null; }
+ if (ok && st.fa && st.tab == 'clients') openAth(st.fa, st.fs); else { S.tab = ok ? st.tab : T[0][0]; go(S.tab); }
+ drawDraftBar();
 }
 function buildNav() {
  const R = ME.modes.includes('rendimiento'), Sa = ME.modes.includes('salud'), I = ['home', 'Inicio', 'home'], E = ['train', 'Entreno', 'dumb'], W = ['well', 'Bienestar', 'heart'], B = ['body', 'Cuerpo', 'body'], P = ['prog', 'Progreso', 'chart'], C = ['cal', 'Calendario', 'cal'];
  const T = ME.role == 'coach' ? [['panel', 'Panel', 'grid'], ['clients', 'Deportistas', 'users'], ['plan', 'Semana', 'cal'], ['routines', 'Rutinas', 'list']] : R && Sa ? [I, E, W, B, P, C] : Sa ? [I, E, B, P] : [I, E, W, C, P];
  $('#nav').innerHTML = T.map(t => `<button class="nv" data-t="${t[0]}">${ic(t[2])}${t[1]}</button>`).join(''); return T; }
 $('#nav').addEventListener('click', e => { const b = e.target.closest('[data-t]'); if (b) { S.fa = null; go(b.dataset.t); } });
+
+/* ===== BORRADOR DE SESIÓN Y ESTADO DE NAVEGACIÓN (se guardan en este dispositivo) ===== */
+const LS = {g: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, s: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} }, d: k => { try { localStorage.removeItem(k); } catch (e) {} }};
+const dKey = () => 'pm.draft.' + (ME ? ME.id : '-'), navKey = () => 'pm.nav.' + (ME ? ME.id : '-');
+const dHas = e => !!(e && ((e.name || '').trim() || (e.ex || []).some(x => (x.name || '').trim())));
+const dAgo = ms => { const m = Math.round((Date.now() - ms) / 6e4); return m < 1 ? 'hace un momento' : m < 60 ? 'hace ' + m + ' min' : m < 1440 ? 'hace ' + Math.round(m / 60) + ' h' : 'hace ' + Math.round(m / 1440) + ' días'; };
+let dT;
+function dSave() { clearTimeout(dT); if (!ME || !dHas(ED)) return; LS.s(dKey(), JSON.stringify({ed: ED, at: Date.now()})); }
+const dSoon = () => { clearTimeout(dT); dT = setTimeout(dSave, 600); };
+const dGet = () => { try { const o = JSON.parse(LS.g(dKey()) || 'null'); return o && dHas(o.ed) ? o : null; } catch (e) { return null; } };
+const dClear = () => { clearTimeout(dT); LS.d(dKey()); drawDraftBar(); };
+function drawDraftBar() { const b = $('#draftbar'); if (!b) return; const o = ED ? null : dGet();
+ if (!o) { b.innerHTML = ''; return; }
+ const n = (o.ed.ex || []).filter(x => (x.name || '').trim()).length, t = o.ed.ctx ? 'Sesión del ' + o.ed.ctx.dn.toLowerCase() : (o.ed.name || '').trim() || 'Rutina sin nombre';
+ b.innerHTML = `<div class="max-w-5xl mx-auto px-4 pt-3"><div class="rounded-2xl border border-[#e63946] p-3 flex items-center gap-3 flex-wrap" style="background:#e6394618"><div class="flex-1 min-w-[150px]"><p class="text-sm font-bold">Tienes una sesión sin guardar</p><p class="text-xs text-zinc-400 truncate">${esc(t)} · ${n} ejercicio${n == 1 ? '' : 's'} · ${dAgo(o.at)}</p></div><button class="btn text-sm" onclick="dRestore()">Recuperar</button><button class="btn2 text-sm" onclick="dDiscard()">Descartar</button></div></div>`; }
+function dRestore() { const o = dGet(); if (!o) return; ED = o.ed; const t = ED.ctx ? 'clients' : 'routines';
+ S.tab = t; if (ED.ctx) { S.fa = ED.ctx.aid; S.fs = ED.ctx.back || 'cal'; S.blk = ED.ctx.blk || null; }
+ document.querySelectorAll('.nv').forEach(b => b.classList.toggle('on', b.dataset.t == t));
+ drawDraftBar(); $('#view').innerHTML = edHtml(); window.scrollTo(0, 0); toast('Borrador recuperado'); }
+function dDiscard() { if (!confirm('¿Descartar el borrador? Perderás la sesión que no guardaste.')) return; dClear(); toast('Borrador descartado'); }
+['input', 'change', 'click'].forEach(ev => document.addEventListener(ev, () => { if (ED) dSoon(); }, true));
+window.addEventListener('beforeunload', dSave);
+window.addEventListener('pagehide', dSave);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState == 'hidden') dSave(); else drawDraftBar(); });
+const navSave = () => { if (ME) LS.s(navKey(), JSON.stringify({tab: S.tab, fa: S.fa, fs: S.fs, date: S.date, cm: S.cm, blk: S.blk, at: Date.now()})); };
+const navGet = () => { try { const o = JSON.parse(LS.g(navKey()) || 'null'); return o && Date.now() - (o.at || 0) < 864e5 ? o : null; } catch (e) { return null; } };
 const VIEWS = {};
-async function go(t) { S.tab = t; ED = null; document.querySelectorAll('.nv').forEach(b => b.classList.toggle('on', b.dataset.t == t)); const v = $('#view'); v.innerHTML = '<p class="text-zinc-400 text-center py-10">Cargando…</p>';
- try { const h = await VIEWS[t](); if (S.tab == t) { v.innerHTML = h; window.scrollTo(0, 0); } } catch (e) { console.error(e); if (S.tab == t) v.innerHTML = '<div class="card text-red-300">No se pudieron cargar los datos. Comprueba tu conexión y vuelve a intentarlo.</div>'; } }
+async function go(t) { if (dHas(ED)) { dSave(); toast('La sesión se queda guardada como borrador'); } S.tab = t; ED = null; drawDraftBar(); document.querySelectorAll('.nv').forEach(b => b.classList.toggle('on', b.dataset.t == t)); const v = $('#view'); v.innerHTML = '<p class="text-zinc-400 text-center py-10">Cargando…</p>';
+ navSave(); try { const h = await VIEWS[t](); if (S.tab == t) { v.innerHTML = h; window.scrollTo(0, 0); } } catch (e) { console.error(e); if (S.tab == t) v.innerHTML = '<div class="card text-red-300">No se pudieron cargar los datos. Comprueba tu conexión y vuelve a intentarlo.</div>'; } }
 const refresh = () => go(S.tab);
 function openSheet(h) { $('#sheetc').innerHTML = h; $('#sheet').style.display = 'flex'; }
 function closeSheet() { if (window.recStop) recStop(); if (window.aniStop) aniStop(); $('#sheet').style.display = 'none'; }
@@ -187,7 +217,7 @@ function chartSvg(D, o = {}) { /* D:[{l,v}] ; o:{type:'line'|'bar',color,fmt,ban
  const W = o.W || 340, H = o.h || 190, L = 40, R = 12, T = o.neon ? 22 : 14, B = o.neon ? 34 : 28, pw = W - L - R, ph = H - T - B, vs = pts.map(d => d.v); let mn = o.min ?? Math.min(...vs), mx = o.max ?? Math.max(...vs);
  if (o.type == 'bar') mn = Math.min(0, mn); if (mn == mx) { mn = Math.max(0, mn * .8); mx = (mx * 1.2) || 1; } else if (o.min == null) { const p = (mx - mn) * .15; mn = o.type == 'bar' ? mn : mn - p; mx += p; }
  const n = D.length, X = i => n == 1 ? L + pw / 2 : o.type == 'bar' ? L + (i + .5) * pw / n : L + i * pw / (n - 1), Y = a => T + ph - (a - mn) / (mx - mn) * ph, col = o.color || '#e63946', f = o.fmt || (a => Math.round(a * 10) / 10);
- let g = ''; for (let k = 0; k <= 3; k++) { const a = mn + (mx - mn) * k / 3, y = Y(a); g += `<line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}" stroke="${o.neon ? '#2a1d22' : '#2f2f38'}"/><text x="${L - 5}" y="${y + 3}" text-anchor="end" font-size="9" fill="#71717a">${f(a)}</text>`; }
+ let g = '', lastL = null; for (let k = 0; k <= 3; k++) { const a = mn + (mx - mn) * k / 3, y = Y(a), tx = String(f(a)); g += `<line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}" stroke="${o.neon ? '#2a1d22' : '#2f2f38'}"/>` + (tx == lastL ? '' : `<text x="${L - 5}" y="${y + 3}" text-anchor="end" font-size="9" fill="#71717a">${tx}</text>`); lastL = tx; }
  (o.bands || []).forEach(b => { const y1 = Y(Math.min(mx, b[1])), y2 = Y(Math.max(mn, b[0])); if (y2 > y1) g += `<rect x="${L}" y="${y1}" width="${pw}" height="${y2 - y1}" fill="${b[2]}" opacity=".13"/>`; });
  const st = o.neon ? 1 : Math.ceil(n / 6); let body = '';
  if (o.type == 'bar' && o.neon) { const bw = Math.min(26, pw / n * .58), id = o.id || 0;
@@ -1206,7 +1236,7 @@ const PF = [['todos', 'Todos'], ['rendimiento', 'Rendimiento'], ['salud', 'Forma
 const pfOk = a => !S.pf || S.pf == 'todos' || amodes(a).includes(S.pf);
 const pfBar = all => `<div class="flex gap-2 flex-wrap items-center">${PF.map(([k, l]) => { const on = (S.pf || 'todos') == k, n = k == 'todos' ? all.length : all.filter(a => amodes(a).includes(k)).length; return `<button class="btn2 text-sm" style="${on ? 'background:#e63946;border-color:#e63946;color:#fff' : ''}" onclick="S.pf='${k}';refresh()">${l} · ${n}</button>`; }).join('')}</div>`;
 const nm = a => a.full_name || a.email, ini = a => (nm(a) || '?')[0].toUpperCase();
-const openAth = (id, tab) => { S.fa = id; S.fs = tab || 'res'; S.tab = 'clients'; document.querySelectorAll('.nv').forEach(b => b.classList.toggle('on', b.dataset.t == 'clients')); go('clients'); };
+const openAth = (id, tab) => { S.fa = id; S.fs = tab || 'res'; S.tab = 'clients'; navSave(); document.querySelectorAll('.nv').forEach(b => b.classList.toggle('on', b.dataset.t == 'clients')); go('clients'); };
 VIEWS.panel = async () => {
  const teamAll = (await getTeam()).filter(c => !c.archived).map(c => c.athlete), team = teamAll.filter(pfOk), bar = teamAll.length ? pfBar(teamAll) : '';
  if (teamAll.length && !team.length) return bar + '<div class="card text-center text-zinc-400">Ningún deportista tiene este perfil.</div>';
@@ -1320,7 +1350,8 @@ async function saveR() {
  try { await q(DB.from('routines').upsert({id: ED.id, coach_id: ME.id, athlete_id: ED.ctx ? ED.ctx.aid : (ED.aid || null), name: ED.name.trim(), notes: ED.notes.trim() || null, mode: ['salud', 'recuperacion'].includes(ED.mode) ? ED.mode : 'rendimiento'}));
   await q(DB.from('routine_exercises').upsert(ex.map((e, i) => ({id: e.id, routine_id: ED.id, position: i, name: e.name.trim(), sets: Math.min(20, Math.max(1, e.sets || 1)), reps: String(e.reps || '10').trim(), rir: String(e.rir || '').trim() || null, video_url: (e.video_url || '').trim() || null, notes: (e.notes || '').trim() || null, kind: KINDS[e.kind] ? e.kind : 'fuerza', rec_id: e.kind == 'recup' && recGet(e.rec_id) ? e.rec_id : null, intensity: String(e.intensity || '').trim().slice(0, 40) || null, rest: String(e.rest || '').trim().slice(0, 40) || null}))));
   const dl = ED.del.filter(id => !ex.some(e => e.id == id)); if (dl.length) await q(DB.from('routine_exercises').delete().in('id', dl));
-  if (ED.ctx) { const c = ED.ctx; if (ED.isNew) { if (c.date) await ovPut(c.aid, c.date, ED.id, c.replace); else await setDay(c.aid, c.d, c.blk, ED.id, c.slot || 1); } toast('Sesión del ' + c.dn.toLowerCase() + ' guardada'); S.blk = c.blk; ED = null; openAth(c.aid, c.date ? (c.back || 'cal') : 'sem'); return; }
+  dClear();
+ if (ED.ctx) { const c = ED.ctx; if (ED.isNew) { if (c.date) await ovPut(c.aid, c.date, ED.id, c.replace); else await setDay(c.aid, c.d, c.blk, ED.id, c.slot || 1); } toast('Sesión del ' + c.dn.toLowerCase() + ' guardada'); S.blk = c.blk; ED = null; openAth(c.aid, c.date ? (c.back || 'cal') : 'sem'); return; }
   toast('Rutina guardada'); ED = null; go('routines'); } catch (e) {}
 }
 function edBack() { const c = ED && ED.ctx; ED = null; if (c) { S.blk = c.blk; openAth(c.aid, c.date ? (c.back || 'cal') : 'sem'); } else go('routines'); }
