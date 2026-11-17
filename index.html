@@ -115,7 +115,9 @@ async function enter(ses) {
  $('#auth').classList.add('hidden'); $('#app').classList.remove('hidden');
  $('#who').textContent = (ME.full_name || ME.email) + ' · ' + (ME.role == 'coach' ? 'Entrenador' : 'Deportista');
  const T = buildNav(); if (ME.role == 'coach') getFolders().catch(() => {});
- ED = null; S.fa = null; const st = navGet(), ok = st && T.some(x => x[0] == st.tab);
+ ED = null; S.fa = null; const qt = new URLSearchParams(location.search).get('t'); if (qt) try { history.replaceState(null, '', location.pathname); } catch (e) {} if (ME.role == 'athlete') pushSync();
+ if (qt && T.some(x => x[0] == qt)) { S.tab = qt; go(qt); drawDraftBar(); return; }
+ const st = navGet(), ok = st && T.some(x => x[0] == st.tab);
  if (ok) { S.fs = st.fs || 'res'; S.date = st.date || today(); S.cm = st.cm || S.cm; S.blk = st.blk || null; }
  if (ok && st.fa && st.tab == 'clients') openAth(st.fa, st.fs); else { S.tab = ok ? st.tab : T[0][0]; go(S.tab); }
  drawDraftBar();
@@ -1263,12 +1265,37 @@ VIEWS.rec = async () => {
  ${sleepGuide(false)}
  <p class="text-[11px] text-zinc-500 px-1">Contenido adaptado a partir de la guía «Rutinas auxiliares de recuperación» del Área de Rendimiento del Elche C.F. (2026/27), que a su vez recoge revisiones y consensos internacionales (Dupuy 2018, Konrad 2021, Wiewelhove 2019, Roberts 2015, Desbrow 2014, Walsh 2021, entre otros). Gran parte de la evidencia procede de estudios con adultos. Son complementos: no sustituyen al descanso ni a una buena planificación de la carga. Si tienes una lesión o molestia, consulta con tu entrenador o fisioterapeuta.</p>`; };
 const recLink = from => `<button class="card w-full text-left flex items-center gap-3 border-teal-400/40" onclick="recOpen('${from}')"><span class="w-11 h-11 rounded-2xl grid place-content-center text-teal-300 bg-teal-400/15" style="padding:10px">${ic('heart')}</span><span class="flex-1"><b class="block">Recuperación</b><span class="text-xs text-zinc-400">Foam roller, automasaje, respiración, sueño y nutrición, con temporizador.</span></span><span class="text-zinc-500 text-xl">›</span></button>`;
-const home2 = VIEWS.home; VIEWS.home = async () => { const h = await home2(); if (!hasR()) return h; const c = await recToday().catch(() => ''), pat = '<div class="grid grid-cols-2 md:grid-cols-4 gap-3">'; return c ? h.replace(pat, () => c + pat) : h; };
+const home2 = VIEWS.home; VIEWS.home = async () => { const [h0, pc] = await Promise.all([home2(), pushCard()]), KG = '<div class="grid grid-cols-2 md:grid-cols-4 gap-3">', h = !pc ? h0 : h0.includes(KG) ? h0.replace(KG, () => pc + KG) : pc + h0; if (!hasR()) return h; const c = await recToday().catch(() => ''), pat = '<div class="grid grid-cols-2 md:grid-cols-4 gap-3">'; return c ? h.replace(pat, () => c + pat) : h; };
 const well2 = VIEWS.well; VIEWS.well = async () => (hasR() ? recLink('well') : '') + await well2();
 const body2 = VIEWS.body; VIEWS.body = async () => (hasR() ? recLink('body') : '') + await body2();
 /* ----- entrenador: editor de rutinas de recuperación y sugerencias ----- */
 function recPick(i, rid) { const g = recGet(rid); if (!g) { ED.ex[i].rec_id = ''; } else { ED.ex[i].rec_id = rid; ED.ex[i].name = g.T.n + ' · ' + g.V.n; ED.ex[i].reps = g.V.dur.replace('≈', ''); ED.ex[i].sets = 1; } $('#view').innerHTML = edHtml(); }
 async function recAutoSet(id, on) { const r = await DB.rpc('set_rec_auto', {p_athlete: id, p_on: on}); if (r.error) return toast(r.error.message); toast(on ? 'Sugerencias de recuperación activadas' : 'Sugerencias de recuperación desactivadas'); refresh(); }
+/* ===== NOTIFICACIONES PUSH ===== */
+const VAPID_PUB = 'BL9otGKcl1BfoUHMzhhmh19__m2VgB7kXxFuPX9GMeskm95sEqT2WsmkKiysk6xhBEZ4WIN0sZ8kowvYCCOjerQ';
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform == 'MacIntel' && navigator.maxTouchPoints > 1);
+const isApp = () => !!(navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches));
+const b64u = s => { const p = '='.repeat((4 - s.length % 4) % 4), b = atob((s + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(b, c => c.charCodeAt(0)); };
+async function pushState() {
+ if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return isIOS() && !isApp() ? 'ios' : 'no';
+ if (Notification.permission == 'denied') return 'denied';
+ try { const r = await navigator.serviceWorker.getRegistration(); const sub = r && await r.pushManager.getSubscription(); return sub && Notification.permission == 'granted' ? 'on' : 'off'; } catch (e) { return 'off'; } }
+async function pushSave(sub) { const j = sub.toJSON(); return DB.from('push_subscriptions').upsert({user_id: ME.id, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth, user_agent: navigator.userAgent.slice(0, 290)}, {onConflict: 'endpoint'}); }
+async function pushOn() {
+ try { const p = await Notification.requestPermission(); if (p != 'granted') { toast('No se han activado: tienes que permitir las notificaciones'); return refresh(); }
+  const reg = await navigator.serviceWorker.register('sw.js'); await navigator.serviceWorker.ready;
+  const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: b64u(VAPID_PUB)});
+  const r = await pushSave(sub); if (r.error) throw r.error;
+  toast('Notificaciones activadas'); DB.functions.invoke('send-reminders', {body: {mode: 'test'}}).catch(() => {}); refresh();
+ } catch (e) { console.error(e); toast('No se pudieron activar las notificaciones en este dispositivo'); } }
+/* si ya están activadas, se vuelve a guardar la suscripción (por si ha cambiado) */
+async function pushSync() { try { if ((await pushState()) != 'on') return; const r = await navigator.serviceWorker.getRegistration(), sub = await r.pushManager.getSubscription(); if (sub) await pushSave(sub); } catch (e) {} }
+async function pushCard() {
+ const st = await pushState(); if (st == 'on' || st == 'no') return '';
+ const box = (t, d, b) => `<div class="card flex items-center gap-3 border-violet-400/40"><span class="w-11 h-11 rounded-2xl grid place-content-center text-violet-300 bg-violet-400/15 shrink-0 text-xl" aria-hidden="true">🔔</span><div class="flex-1 min-w-0"><b class="block">${t}</b><span class="text-xs text-zinc-400">${d}</span></div>${b || ''}</div>`;
+ if (st == 'ios') return box('Recibe los recordatorios en el móvil', 'En iPhone, primero añade la app a la pantalla de inicio: botón <b>Compartir</b> → <b>Añadir a pantalla de inicio</b>. Ábrela desde ese icono y aquí te saldrá el botón para activarlas.');
+ if (st == 'denied') return box('Notificaciones bloqueadas', 'Las has bloqueado para esta app. Para recibir los recordatorios, actívalas en los ajustes del navegador o del móvil.');
+ return box('Activa las notificaciones', 'Te aviso para el cuestionario de bienestar por la mañana, si se te queda una sesión sin marcar y para marcar tu semana en el calendario.', '<button class="btn text-sm shrink-0" onclick="pushOn()">Activar</button>'); }
 /* ===== PANEL DEL ENTRENADOR ===== */
 const getTeam = () => q(DB.from('coach_athletes').select('archived,athlete:profiles!coach_athletes_athlete_id_fkey(id,full_name,email,modes)').order('created_at'));
 const amodes = a => Array.isArray(a.modes) && a.modes.length ? a.modes : ['rendimiento'], isSaludOnly = a => !amodes(a).includes('rendimiento');
