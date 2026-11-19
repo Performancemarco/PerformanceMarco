@@ -82,6 +82,7 @@ const IC = {
  users: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/>',
  grid: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
  list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+ down: '<path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/>',
  bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
  folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
  body: '<circle cx="12" cy="4.5" r="2.5"/><path d="M12 8v6M6.5 10.5L12 8l5.5 2.5M9 22l3-8 3 8"/>'};
@@ -667,7 +668,7 @@ VIEWS.train = async () => { try { window._myRZ = runZones(await getEval(ME.id));
   q(DB.from('set_logs').select('exercise_name,set_no,secs,meters,log_date').eq('athlete_id', ME.id).lt('log_date', S.date).or('secs.not.is.null,meters.not.is.null').order('log_date', {ascending: false}).limit(400))]);
  const G = {}; lg.forEach(l => G[l.exercise_id + '_' + l.set_no] = l); const H = {}, HL = {}; hist.forEach(x => { const k = slug(x.exercise_name) + '_' + x.set_no; if (!H[k]) H[k] = x.kg; const e0 = HL[slug(x.exercise_name)] || (HL[slug(x.exercise_name)] = {d: x.log_date, s: []}); if (e0.d == x.log_date) e0.s.push(x); }); const showLast = R.mode == 'salud' || !hasR(); const H2 = {}; hist2.forEach(x => { const k = slug(x.exercise_name) + '_' + x.set_no; if (!H2[k]) H2[k] = x; });
  S.cur = R; S.rpe = ss ? ss.rpe : null; const tot = R.routine_exercises.reduce((a, e) => a + e.sets, 0), dn = lg.filter(l => l.done).length;
- h += (RL.length > 1 ? `<div class="card"><p class="text-xs text-zinc-400 mb-2">Hoy tienes ${RL.length} sesiones. Elige cuál hacer:</p><div class="flex gap-2 flex-wrap">${RL.map((x, i) => `<button class="btn2 text-sm flex-1" style="${i == (S.ri || 0) ? 'background:#fff;border-color:#fff;color:#000' : ''}" onclick="S.ri=${i};go('train')">${i + 1}. ${esc(x.name)}</button>`).join('')}</div></div>` : '') + `<div class="rounded-3xl p-4 border border-red-500/40" style="background:#151518"><p class="text-[11px] font-black tracking-widest text-[#e63946]">${esc(dt(S.date).toLocaleDateString('es-ES', {weekday: 'long', day: 'numeric', month: 'long'}).toUpperCase())}</p><h2 class="text-2xl font-black">${esc(R.name)}</h2>${R.notes ? `<p class="text-sm text-zinc-300 mt-1">${esc(R.notes)}</p>` : ''}<div class="mt-3 flex items-center gap-2"><div class="flex-1 h-2 rounded-full bg-zinc-800 overflow-hidden"><div id="pb" class="h-full" style="width:${Math.round(dn / tot * 100)}%;background:#e63946"></div></div><span id="pt" class="text-xs font-bold w-20 text-right">${dn}/${tot} series</span></div><p class="text-[11px] text-zinc-400 mt-2">Se guarda solo. Los números en gris son tu última carga.</p></div>`;
+ h += (RL.length > 1 ? `<div class="card"><p class="text-xs text-zinc-400 mb-2">Hoy tienes ${RL.length} sesiones. Elige cuál hacer:</p><div class="flex gap-2 flex-wrap">${RL.map((x, i) => `<button class="btn2 text-sm flex-1" style="${i == (S.ri || 0) ? 'background:#fff;border-color:#fff;color:#000' : ''}" onclick="S.ri=${i};go('train')">${i + 1}. ${esc(x.name)}</button>`).join('')}</div></div>` : '') + `<div class="rounded-3xl p-4 border border-red-500/40" style="background:#151518"><p class="text-[11px] font-black tracking-widest text-[#e63946]">${esc(dt(S.date).toLocaleDateString('es-ES', {weekday: 'long', day: 'numeric', month: 'long'}).toUpperCase())}</p><h2 class="text-2xl font-black">${esc(R.name)}</h2>${R.notes ? `<p class="text-sm text-zinc-300 mt-1">${esc(R.notes)}</p>` : ''}<div class="mt-3 flex items-center gap-2"><div class="flex-1 h-2 rounded-full bg-zinc-800 overflow-hidden"><div id="pb" class="h-full" style="width:${Math.round(dn / tot * 100)}%;background:#e63946"></div></div><span id="pt" class="text-xs font-bold w-20 text-right">${dn}/${tot} series</span></div><div class="flex items-center justify-between gap-2 mt-2"><p class="text-[11px] text-zinc-400">Se guarda solo. Los números en gris son tu última carga.</p><button class="btn2 text-xs shrink-0 flex items-center gap-1.5" onclick="sesPdf(S.cur, ME.id, S.date)" aria-label="Descargar la sesión en PDF">${ic('down').replace('<svg', '<svg width="15" height="15"')}Descargar PDF</button></div></div>`;
  R.routine_exercises.forEach((e, i) => { let rows = '', K0 = e.kind || 'fuerza', K = K0 == 'recup' ? 'otro' : K0; const at = (s, f) => `data-e="${e.id}" data-n="${esc(e.name)}" data-s="${s}" data-f="${f}"`; for (let s = 1; s <= e.sets; s++) { const l = G[e.id + '_' + s] || {}, hk = H[slug(e.name) + '_' + s], h2 = H2[slug(e.name) + '_' + s] || {}, dc = `<input type="checkbox" class="chk" ${l.done ? 'checked' : ''} ${at(s, 'done')} aria-label="Serie ${s} hecha">`;
    if (K == 'sprint') rows += `<div class="sg sg3"><span class="text-center font-black text-zinc-500">${s}</span><input class="inp num" inputmode="decimal" placeholder="${h2.secs ?? 'seg'}" value="${l.secs ?? ''}" ${at(s, 'secs')} aria-label="Tiempo en segundos, repetición ${s}">${dc}</div>`;
    else if (K == 'carrera') rows += `<div class="sg"><span class="text-center font-black text-zinc-500">${s}</span><input class="inp num" inputmode="decimal" placeholder="${h2.meters ?? 'metros'}" value="${l.meters ?? ''}" ${at(s, 'meters')} aria-label="Metros, bloque ${s}"><input class="inp num" inputmode="decimal" placeholder="${h2.secs ? fmt(h2.secs / 60, 1) : 'min'}" value="${l.secs != null ? fmt(l.secs / 60, 1) : ''}" ${at(s, 'mins')} aria-label="Minutos, bloque ${s}">${dc}</div>`;
@@ -1468,7 +1469,7 @@ VIEWS.routines = async () => {
  const [R] = await Promise.all([q(DB.from('routines').select('id,name,notes,mode,folder_id,routine_exercises(count)').is('athlete_id', null).order('name')), getFolders()]);
  const inF = r => FOLD.some(f => f.id == r.folder_id), loose = R.filter(r => !inF(r)), cur = S.lf == 'none' && loose.length || FOLD.some(f => f.id == S.lf) ? S.lf : '';
  const chip = (k, l, n) => `<button class="btn2 text-sm" style="${cur == k ? 'background:#fff;border-color:#fff;color:#000' : ''}" onclick="S.lf='${k}';refresh()">${esc(l)} · ${n}</button>`;
- const card = r => `<div class="card flex items-center gap-2 flex-wrap"><div class="flex-1 min-w-[150px]"><p class="font-extrabold truncate">${esc(r.name)}</p><p class="text-xs text-zinc-400">${r.routine_exercises[0].count} ejercicios · ${r.mode == 'salud' ? '<span class="text-emerald-300 font-bold">Salud</span>' : r.mode == 'recuperacion' ? '<span class="text-zinc-200 font-bold">Recuperación</span>' : '<span class="text-zinc-200 font-bold">Rendimiento</span>'}</p></div><div class="flex gap-1.5"><button class="btn2 text-sm" onclick="editR('${r.id}')">Editar</button><button class="btn2 text-sm" onclick="fMove('${r.id}','${r.folder_id || ''}')">Mover</button><button class="btn2 text-sm" onclick="dupR('${r.id}')">Duplicar</button><button class="btn2 text-sm text-red-300" onclick="delR('${r.id}')" aria-label="Eliminar">✕</button></div></div>`;
+ const card = r => `<div class="card flex items-center gap-2 flex-wrap"><div class="flex-1 min-w-[150px]"><p class="font-extrabold truncate">${esc(r.name)}</p><p class="text-xs text-zinc-400">${r.routine_exercises[0].count} ejercicios · ${r.mode == 'salud' ? '<span class="text-emerald-300 font-bold">Salud</span>' : r.mode == 'recuperacion' ? '<span class="text-zinc-200 font-bold">Recuperación</span>' : '<span class="text-zinc-200 font-bold">Rendimiento</span>'}</p></div><div class="flex gap-1.5"><button class="btn2 text-sm" onclick="editR('${r.id}')">Editar</button><button class="btn2 text-sm" onclick="fMove('${r.id}','${r.folder_id || ''}')">Mover</button><button class="btn2 text-sm" onclick="dupR('${r.id}')">Duplicar</button><button class="btn2 text-sm" onclick="sesPdfId('${r.id}')" aria-label="Descargar en PDF">PDF</button><button class="btn2 text-sm text-red-300" onclick="delR('${r.id}')" aria-label="Eliminar">✕</button></div></div>`;
  const all = FOLD.map(f => [f, f.name, R.filter(r => r.folder_id == f.id)]).concat(loose.length ? [[null, 'Sin carpeta', loose]] : []), groups = !cur ? all : all.filter(g => cur == 'none' ? !g[0] : g[0] && g[0].id == cur);
  return `<div class="flex gap-2"><button class="btn flex-1" onclick="newR()">+ Nueva rutina</button><button class="btn2" onclick="fForm()">+ Carpeta</button></div>
  <div class="flex gap-2 flex-wrap">${chip('', 'Todas', R.length)}${FOLD.map(f => chip(f.id, f.name, R.filter(r => r.folder_id == f.id).length)).join('')}${loose.length ? chip('none', 'Sin carpeta', loose.length) : ''}</div>
@@ -1486,8 +1487,7 @@ function edHtml() {
  <div class="grid grid-cols-3 gap-2"><label class="text-xs text-zinc-400">${e.kind == 'carrera' ? 'Bloques' : 'Series'}<input class="inp num" type="number" min="1" max="20" value="${e.sets}" oninput="ED.ex[${i}].sets=+this.value"></label><label class="text-xs text-zinc-400">${KH[e.kind][0]}<input class="inp num" value="${esc(e.reps)}" maxlength="20" oninput="ED.ex[${i}].reps=this.value"></label>${e.kind == 'fuerza' || e.kind == 'plio' ? `<label class="text-xs text-zinc-400">RIR <span class="inline-grid place-content-center w-4 h-4 rounded-full bg-amber-400 text-zinc-900 text-[10px] font-black cursor-pointer" onclick="event.preventDefault();rirInfo()">?</span><input class="inp num" value="${esc(e.rir)}" maxlength="10" oninput="ED.ex[${i}].rir=this.value"></label>` : '<span></span>'}</div>
  <div class="grid grid-cols-2 gap-2">${e.kind == 'carrera' ? zSel(e, i) : `<label class="text-xs text-zinc-400">Intensidad<input class="inp" placeholder="${esc(KH[e.kind][1])}" value="${esc(e.intensity)}" maxlength="40" oninput="ED.ex[${i}].intensity=this.value"></label>`}<label class="text-xs text-zinc-400">Descanso<input class="inp" placeholder="${esc(KH[e.kind][2])}" value="${esc(e.rest)}" maxlength="40" oninput="ED.ex[${i}].rest=this.value"></label></div>${e.kind == 'carrera' ? `<p id="zh${i}" class="text-[11px] text-zinc-400 -mt-1">${zHintTxt(e)}</p>` : ''}
  <input class="inp" type="url" placeholder="Enlace de vídeo https://… (opcional)" value="${esc(e.video_url)}" oninput="ED.ex[${i}].video_url=this.value"><input class="inp" placeholder="Indicaciones (opcional)" value="${esc(e.notes)}" maxlength="500" oninput="ED.ex[${i}].notes=this.value"></div>`).join('')}
- <div class="card"><p class="text-xs text-zinc-400 mb-2">Añadir a la rutina</p><div class="flex flex-wrap gap-2">${Object.keys(KINDS).map(k => `<button class="btn2 text-sm" onclick="edAdd('${k}')">+ ${KINDS[k][0]}</button>`).join('')}</div></div><div class="flex gap-2"><button class="btn flex-1" onclick="saveR()">${ED.ctx ? 'Guardar sesión del ' + esc(ED.ctx.dn.toLowerCase()) : 'Guardar rutina'}</button><button class="btn2" onclick="edBack()">Cancelar</button></div>`;
-}
+ <div class="card"><p class="text-xs text-zinc-400 mb-2">Añadir a la rutina</p><div class="flex flex-wrap gap-2">${Object.keys(KINDS).map(k => `<button class="btn2 text-sm" onclick="edAdd('${k}')">+ ${KINDS[k][0]}</button>`).join('')}</div></div><div class="flex gap-2"><button class="btn flex-1" onclick="saveR()">${ED.ctx ? 'Guardar sesión del ' + esc(ED.ctx.dn.toLowerCase()) : 'Guardar rutina'}</button><button class="btn2" onclick="sesPdf({name: ED.name, notes: ED.notes, mode: ED.mode, routine_exercises: ED.ex.map((x, k) => ({...x, position: k}))}, ED.ctx && ED.ctx.aid, ED.ctx && ED.ctx.date)" aria-label="Descargar en PDF">PDF</button><button class="btn2" onclick="edBack()">Cancelar</button></div>`; }
 const edAdd = k => { ED.ex.push(blank(k)); $('#view').innerHTML = edHtml(); }, edDup = i => { ED.ex.splice(i + 1, 0, {...ED.ex[i], id: uid()}); $('#view').innerHTML = edHtml(); }, edDel = i => { ED.del.push(ED.ex[i].id); ED.ex.splice(i, 1); $('#view').innerHTML = edHtml(); };
 async function saveR() {
  if (ED.ctx && !ED.name.trim()) ED.name = 'Sesión ' + ED.ctx.dn.toLowerCase();
@@ -1503,6 +1503,143 @@ async function saveR() {
   toast('Rutina guardada'); ED = null; go('routines'); } catch (e) {}
 }
 function edBack() { const c = ED && ED.ctx; ED = null; if (c) { S.blk = c.blk; openAth(c.aid, c.date ? (c.back || 'cal') : 'sem'); } else go('routines'); }
+/* ===== PDF DE UNA SESIÓN (pdf-lib, mismo estilo que el informe) =====
+   buildSessionPdf(PDFLib, D) -> Uint8Array. D lo prepara sesPdf(). */
+async function buildSessionPdf(PDFLib, D) {
+ const {PDFDocument, StandardFonts, rgb, PDFName, PDFString} = PDFLib;
+ const doc = await PDFDocument.create();
+ doc.setTitle(D.title + (D.who ? ' · ' + D.who : '')); doc.setAuthor('Performancemarco'); doc.setCreator('Performancemarco');
+ const FR = await doc.embedFont(StandardFonts.Helvetica), FB = await doc.embedFont(StandardFonts.HelveticaBold);
+ const PW = 595.28, PH = 841.89, M = 36, CW = PW - 2 * M, BOT = 800;
+ const hx = h => { h = h.replace('#', ''); return rgb(parseInt(h.slice(0, 2), 16) / 255, parseInt(h.slice(2, 4), 16) / 255, parseInt(h.slice(4, 6), 16) / 255); };
+ const C = {ink: '#141416', mute: '#62626b', soft: '#9a9aa3', line: '#e4e4e8', panel: '#f6f6f8', red: '#e63946', dark: '#0e0e11', green: '#1f9d55', amber: '#c98a00', blue: '#2b86c9'};
+ const KC = {fuerza: ['FUERZA', '#141416'], plio: ['PLIOMETRÍA', '#62626b'], sprint: ['SPRINT', '#e63946'], carrera: ['CARRERA', '#1f9d55'], recup: ['RECUPERACIÓN', '#2b86c9'], otro: ['OTRO', '#9a9aa3']};
+ const okc = {}; const san = s => { s = String(s == null ? '' : s).replace(/−/g, '-').replace(/≈/g, '~').replace(/≥/g, '>=').replace(/≤/g, '<=').replace(/→/g, '->').replace(/[  ]/g, ' '); let o = ''; for (const ch of s) { if (okc[ch] == null) { try { FR.encodeText(ch); okc[ch] = 1; } catch (e) { okc[ch] = 0; } } if (okc[ch]) o += ch; } return o; };
+ const W = (s, sz, b) => (b ? FB : FR).widthOfTextAtSize(san(s), sz);
+ let pg; const pages = [];
+ const newPage = () => { pg = doc.addPage([PW, PH]); pages.push(pg); return pg; };
+ const T = (s, x, top, o = {}) => { const sz = o.size || 9, f = o.bold ? FB : FR; let t = san(s); if (o.maxW) while (t.length > 1 && f.widthOfTextAtSize(t, sz) > o.maxW) t = t.slice(0, -2) + '…'; const w = f.widthOfTextAtSize(t, sz), xx = o.align == 'right' ? x - w : o.align == 'center' ? x - w / 2 : x; pg.drawText(t, {x: xx, y: PH - top - sz * .78, size: sz, font: f, color: hx(o.color || C.ink), opacity: o.op == null ? 1 : o.op}); return w; };
+ const wrap = (s, sz, b, maxW) => { const out = []; san(s).split(/\n+/).forEach(par => { let cur = ''; par.split(/\s+/).filter(Boolean).forEach(w => { const t = cur ? cur + ' ' + w : w; if ((b ? FB : FR).widthOfTextAtSize(t, sz) > maxW && cur) { out.push(cur); cur = w; } else cur = t; }); if (cur) out.push(cur); }); return out; };
+ const P = (s, x, top, maxW, o = {}) => { const sz = o.size || 8.6, lh = o.lh || sz * 1.4, ls = wrap(s, sz, o.bold, maxW).slice(0, o.max || 99); ls.forEach((l, i) => T(l, x, top + i * lh, {...o, size: sz})); return ls.length * lh; };
+ const PH_ = (s, maxW, o = {}) => { const sz = o.size || 8.6; return wrap(s, sz, o.bold, maxW).slice(0, o.max || 99).length * (o.lh || sz * 1.4); };
+ const rect = (x, top, w, h, o = {}) => pg.drawRectangle({x, y: PH - top - h, width: w, height: h, color: o.fill ? hx(o.fill) : undefined, borderColor: o.stroke ? hx(o.stroke) : undefined, borderWidth: o.sw || 0, opacity: o.op == null ? 1 : o.op});
+ const rr = (x, top, w, h, r, o = {}) => { r = Math.min(r, w / 2, h / 2); const p = `M ${r} 0 H ${w - r} Q ${w} 0 ${w} ${r} V ${h - r} Q ${w} ${h} ${w - r} ${h} H ${r} Q 0 ${h} 0 ${h - r} V ${r} Q 0 0 ${r} 0 Z`; pg.drawSvgPath(p, {x, y: PH - top, color: o.fill ? hx(o.fill) : undefined, borderColor: o.stroke ? hx(o.stroke) : undefined, borderWidth: o.sw || 0, opacity: o.op == null ? 1 : o.op, borderOpacity: o.sop == null ? 1 : o.sop}); };
+ const ln = (x1, t1, x2, t2, o = {}) => pg.drawLine({start: {x: x1, y: PH - t1}, end: {x: x2, y: PH - t2}, thickness: o.th || .6, color: hx(o.color || C.line), dashArray: o.dash});
+ const dot = (x, top, r, o = {}) => pg.drawCircle({x, y: PH - top, size: r, color: o.fill ? hx(o.fill) : undefined, borderColor: o.stroke ? hx(o.stroke) : undefined, borderWidth: o.sw || 0});
+ const tri = (x, top, s, col) => pg.drawSvgPath(`M 0 0 L ${s} ${s / 2} L 0 ${s} Z`, {x, y: PH - top, color: hx(col)});
+ const link = (x, top, w, h, url) => { try { const a = doc.context.obj({Type: 'Annot', Subtype: 'Link', Rect: [x, PH - top - h, x + w, PH - top], Border: [0, 0, 0], A: {Type: 'Action', S: 'URI', URI: PDFString.of(url)}}); pg.node.addAnnot(doc.context.register(a)); } catch (e) {} };
+ /* etiqueta redondeada; devuelve su ancho */
+ const chip = (s, x, top, o = {}) => { const sz = o.size || 7.4, w = W(s, sz, true) + 12; rr(x, top, w, 15, 4, {fill: o.fill || '#ffffff', stroke: o.stroke, sw: o.stroke ? .7 : 0}); T(s, x + 6, top + 4.2, {size: sz, bold: true, color: o.color || C.ink}); return w; };
+ let logo = null; if (D.logo) { try { logo = await doc.embedPng(D.logo); } catch (e) { logo = null; } }
+
+ let y = 0;
+ const slim = () => { rect(0, 0, PW, 44, {fill: C.dark}); rect(0, 44, PW, 2.5, {fill: C.red}); if (logo) pg.drawImage(logo, {x: M, y: PH - 36, width: 28, height: 28}); T(D.title, M + (logo ? 38 : 0), 13, {size: 11, bold: true, color: '#ffffff', maxW: CW - 200}); T('PERFORMANCEMARCO', M + (logo ? 38 : 0), 28, {size: 6.8, bold: true, color: C.red}); T(D.who || 'Sesión de entrenamiento', PW - M, 13, {size: 9, bold: true, color: '#ffffff', align: 'right'}); T(D.dateLong || '', PW - M, 28, {size: 7.2, color: '#b9b9c0', align: 'right'}); y = 64; };
+ const need = h => { if (y + h > BOT) { newPage(); slim(); } };
+ const sec = t => { need(34); rect(M, y + 1, 3, 13, {fill: C.red}); T(t.toUpperCase(), M + 9, y + 2, {size: 10.5, bold: true}); y += 22; };
+
+ /* ---------- portada ---------- */
+ newPage();
+ const tx = M + (logo ? 68 : 0), rx = PW - M - 84, rW = Math.max(W(D.who || 'Biblioteca', 10.5, true), D.dateLong ? W(D.dateLong, 8) : 0), tl = wrap(D.title, 21, true, rx - rW - 18 - tx).slice(0, 3), HH = 112 + (tl.length - 1) * 24;
+ rect(0, 0, PW, HH, {fill: C.dark}); rect(0, HH, PW, 3, {fill: C.red});
+ pg.drawSvgPath(`M 0 0 L 46 0 L ${46 - HH * .32} ${HH} L ${-HH * .32} ${HH} Z`, {x: PW - 70, y: PH, color: hx(C.red), opacity: .9});
+ if (logo) pg.drawImage(logo, {x: M, y: PH - 22 - 54, width: 54, height: 54});
+ T('SESIÓN DE ENTRENAMIENTO', tx, 24, {size: 7.6, bold: true, color: C.red});
+ tl.forEach((l, i) => T(l, tx, 38 + i * 24, {size: 21, bold: true, color: '#ffffff'}));
+ T(D.sub, tx, 38 + tl.length * 24 + 4, {size: 8.4, color: '#b9b9c0', maxW: rx - rW - 18 - tx});
+ T(D.who || 'Biblioteca', rx, 26, {size: 10.5, bold: true, color: '#ffffff', align: 'right'});
+ if (D.dateLong) T(D.dateLong, rx, 42, {size: 8, color: '#b9b9c0', align: 'right'});
+ y = HH + 18;
+
+ /* datos clave */
+ const tiles = D.tiles, tw = (CW - 3 * 8) / tiles.length;
+ tiles.forEach((t, i) => { const x = M + i * (tw + 8); rr(x, y, tw, 50, 8, {fill: C.panel}); rect(x, y + 12, 2.5, 26, {fill: i == 0 ? C.red : '#d4d4da'}); T(t[0].toUpperCase(), x + 12, y + 10, {size: 6.6, bold: true, color: C.soft}); T(t[1], x + 12, y + 22, {size: 14.5, bold: true, maxW: tw - 20}); if (t[2]) T(t[2], x + 12, y + 39, {size: 6.8, color: C.mute, maxW: tw - 20}); });
+ y += 64;
+
+ if (D.notes) { const h = PH_(D.notes, CW - 34, {size: 9}) + 30; need(h + 6); rr(M, y, CW, h, 8, {fill: '#fff4f5', stroke: '#f5c2c7', sw: .7}); rect(M, y + 10, 3, h - 20, {fill: C.red}); T('INDICACIONES DE TU ENTRENADOR', M + 16, y + 10, {size: 6.8, bold: true, color: C.red}); P(D.notes, M + 16, y + 22, CW - 34, {size: 9, color: C.ink}); y += h + 14; }
+
+ if (D.zones && D.zonesUsed) {
+  sec('Tus zonas de carrera'); const Z = D.zones, xs = [M + 12, M + 128, M + 236, M + 316, M + 362], sw4 = PW - M - 10 - xs[4];
+  need(18 + Z.z.length * 18); rr(M, y, CW, 18 + Z.z.length * 18, 6, {fill: '#ffffff', stroke: C.line, sw: .7});
+  ['ZONA', 'RITMO (MIN/KM)', 'FC (LPM)', 'RPE', 'SENSACIÓN'].forEach((h, i) => T(h, xs[i], y + 6, {size: 6.4, bold: true, color: C.soft}));
+  Z.z.forEach((z, k) => { const t = y + 18 + k * 18, cl = ['#9a9aa3', C.green, C.amber, '#e0565f', C.red][k]; ln(M + 6, t, PW - M - 6, t, {color: C.line}); dot(xs[0] + 3, t + 9, 3.2, {fill: cl}); T(z.id + ' ' + z.n, xs[0] + 10, t + 5, {size: 8, bold: true}); T(D.zp(z), xs[1], t + 5, {size: 8.2, bold: true}); T(z.h2 ? D.zh(z) : '-', xs[2], t + 5, {size: 8.2, color: C.mute}); T(z.rpe, xs[3], t + 5, {size: 8.2, color: C.mute}); T(z.d, xs[4], t + 5, {size: 7.2, color: C.mute, maxW: sw4}); });
+  y += 18 + Z.z.length * 18 + 8; T(`Calculadas con tu ${D.zones.proto} del ${D.zones.dateTxt}.`, M, y, {size: 7, color: C.soft}); y += 16;
+ }
+
+ /* ---------- ejercicios ---------- */
+ sec('Ejercicios');
+ D.ex.forEach((e, i) => {
+  const K = KC[e.kind] || KC.fuerza, run = e.kind == 'carrera', LW = CW * .58 - 50, GX = M + CW * .6, GW = CW * .4 - 14, n = Math.max(1, Math.min(10, +e.sets || 1));
+  const cols = run ? [['BLOQUE', .2], ['DISTANCIA', .3], ['TIEMPO', .3], ['HECHO', .2]] : e.kind == 'fuerza' || e.kind == 'plio' ? [['SERIE', .2], ['KG', .3], ['REPS', .3], ['HECHO', .2]] : [['SERIE', .25], [e.kind == 'sprint' ? 'TIEMPO / M' : 'REPS / TIEMPO', .5], ['HECHO', .25]];
+  const nH = e.notes ? PH_(e.notes, LW, {size: 8.4}) : 0, zl = e.zoneTxt ? 14 : 0, vl = e.video ? 15 : 0;
+  const textH = 42 + (nH ? nH + 6 : 0) + zl + vl, gridH = 16 + n * 17, h = Math.max(textH, gridH) + 22;
+  need(h + 8);
+  rr(M, y, CW, h, 9, {fill: '#ffffff', stroke: C.line, sw: .8}); rect(M, y + 12, 3, h - 24, {fill: K[1]});
+  dot(M + 24, y + 22, 11, {fill: C.red}); T(String(i + 1), M + 24, y + 17.5, {size: 10, bold: true, color: '#ffffff', align: 'center'});
+  const x0 = M + 44; T(e.name, x0, y + 13, {size: 11.5, bold: true, maxW: LW});
+  let cx = x0, cy = y + 31;
+  const tags = [[K[0], {fill: K[1] + '', color: '#ffffff'}], [e.dose, {fill: C.panel, color: C.ink}]];
+  if (e.intensity) tags.push([e.intensity, {fill: '#ffffff', stroke: C.red, color: C.red}]);
+  if (e.rir) tags.push(['RIR ' + e.rir, {fill: '#ffffff', stroke: '#c9c9cf', color: C.ink}]);
+  if (e.rest) tags.push(['Desc. ' + e.rest, {fill: C.panel, color: C.mute}]);
+  tags.forEach(([s, o]) => { if (!s) return; const w = W(s, 7.4, true) + 12; if (cx + w > x0 + LW + 10) { cx = x0; cy += 19; } cx += chip(s, cx, cy, o) + 5; });
+  let ty = cy + 22;
+  if (e.zoneTxt) { dot(x0 + 3.5, ty + 4.5, 3.2, {fill: e.zoneCol}); T(e.zoneTxt, x0 + 11, ty + 1, {size: 8.2, bold: true, color: C.ink, maxW: LW - 12}); ty += 14; }
+  if (e.notes) { ty += P(e.notes, x0, ty, LW, {size: 8.4, color: C.mute}) + 4; }
+  if (e.video) { tri(x0, ty + 1, 8, C.red); const w = T('Ver vídeo del ejercicio', x0 + 12, ty, {size: 8.2, bold: true, color: C.red}); link(x0 - 2, ty - 2, w + 16, 13, e.video); }
+  /* hoja para apuntar */
+  let gx = GX; const gt = y + 12; rr(GX - 6, gt - 4, GW + 12, gridH + 6, 6, {fill: '#fafafb'});
+  cols.forEach(([l, f]) => { T(l, gx + GW * f / 2, gt, {size: 6.2, bold: true, color: C.soft, align: 'center'}); gx += GW * f; });
+  for (let r = 0; r < n; r++) { const t = gt + 14 + r * 17; let x = GX; cols.forEach(([l, f], c) => { const w = GW * f; if (c == 0) T(String(r + 1), x + w / 2, t + 4, {size: 8.2, bold: true, color: C.mute, align: 'center'}); else if (l == 'HECHO') rr(x + w / 2 - 6, t + 1, 12, 12, 3, {fill: '#ffffff', stroke: '#bdbdc4', sw: .8}); else { rr(x + 2, t, w - 4, 14, 3, {fill: '#ffffff', stroke: '#d4d4da', sw: .7}); const ph = l == 'REPS' ? e.reps : l == 'TIEMPO' && run ? e.reps : ''; if (ph && String(ph).length < 9) T(ph, x + w / 2, t + 3.6, {size: 7.4, color: '#c4c4cc', align: 'center'}); } x += w; }); }
+  y += h + 8;
+ });
+
+ /* ---------- cierre ---------- */
+ need(118); sec('Al terminar');
+ rr(M, y, CW, 84, 9, {fill: C.panel});
+ T('ESFUERZO DE LA SESIÓN (RPE)', M + 14, y + 12, {size: 6.8, bold: true, color: C.soft});
+ for (let k = 1; k <= 10; k++) { const x = M + 14 + (k - 1) * 24, col = k <= 2 ? '#9a9aa3' : k <= 4 ? C.green : k <= 6 ? '#7cc49a' : k <= 8 ? C.amber : C.red; dot(x + 9, y + 34, 9, {fill: '#ffffff', stroke: col, sw: 1.2}); T(String(k), x + 9, y + 30.5, {size: 8, bold: true, color: col, align: 'center'}); }
+ T('MINUTOS', M + 272, y + 12, {size: 6.8, bold: true, color: C.soft}); rr(M + 272, y + 24, 70, 20, 4, {fill: '#ffffff', stroke: '#d4d4da', sw: .7});
+ T('CÓMO TE HAS SENTIDO', M + 356, y + 12, {size: 6.8, bold: true, color: C.soft}); ln(M + 356, y + 40, PW - M - 14, y + 40, {color: '#c9c9cf'});
+ ln(M + 14, y + 66, PW - M - 14, y + 66, {color: '#c9c9cf'});
+ T('Notas:', M + 14, y + 56, {size: 7.4, color: C.soft});
+ y += 98;
+ if (D.legend.rpe || D.legend.rir) {
+  need(110); const cw2 = D.legend.rpe && D.legend.rir ? (CW - 10) / 2 : CW; let lx = M;
+  if (D.legend.rpe) { rr(lx, y, cw2, 100, 8, {fill: '#ffffff', stroke: C.line, sw: .7}); T('RPE · ESFUERZO PERCIBIDO', lx + 12, y + 10, {size: 7, bold: true, color: C.red}); [['1-2', 'Muy suave: podrías ir cantando'], ['3-4', 'Suave: hablas con frases completas'], ['5-6', 'Moderado: solo frases cortas'], ['7-8', 'Duro: apenas unas palabras'], ['9-10', 'Muy duro / máximo: no puedes hablar']].forEach(([k, t], j) => { T(k, lx + 12, y + 26 + j * 14, {size: 8, bold: true}); T(t, lx + 42, y + 26 + j * 14, {size: 8, color: C.mute, maxW: cw2 - 54}); }); lx += cw2 + 10; }
+  if (D.legend.rir) { rr(lx, y, cw2, 100, 8, {fill: '#ffffff', stroke: C.line, sw: .7}); T('RIR · REPETICIONES EN RESERVA', lx + 12, y + 10, {size: 7, bold: true, color: C.red}); [['0', 'Al límite: no sale ni una más'], ['1', 'Te queda 1: muy duro'], ['2', 'Te quedan 2: exigente y con buena técnica'], ['3', 'Te quedan 3: moderado-alto'], ['4+', 'Te sobra: calentar o aprender']].forEach(([k, t], j) => { T(k, lx + 12, y + 26 + j * 14, {size: 8, bold: true}); T(t, lx + 36, y + 26 + j * 14, {size: 8, color: C.mute, maxW: cw2 - 48}); }); }
+  y += 112;
+ }
+
+ pages.forEach((p, i) => { pg = p; ln(M, PH - 30, PW - M, PH - 30, {color: C.line}); T(`Performancemarco · ${D.title}${D.who ? ' · ' + D.who : ''}`, M, PH - 24, {size: 6.8, color: C.soft, maxW: CW - 80}); T(`Página ${i + 1} de ${pages.length}`, PW - M, PH - 24, {size: 6.8, color: C.soft, align: 'right'}); });
+ return await doc.save();
+}
+/* Prepara los datos de una sesión y descarga el PDF.
+   R = {name, notes, mode, routine_exercises}; aid = deportista (para su nombre y sus zonas); date = día de la sesión */
+async function sesPdf(R, aid, date) {
+ try {
+  toast('Preparando el PDF…');
+  const ex = (R.routine_exercises || []).slice().sort((a, b) => (a.position || 0) - (b.position || 0));
+  const zoneUse = ex.some(e => e.kind == 'carrera' && /^Z[1-5]/.test(e.intensity || ''));
+  const [PL, pf, ev] = await Promise.all([loadPdfLib(), aid ? (aid == ME.id ? Promise.resolve(ME) : q(DB.from('profiles').select('full_name,email').eq('id', aid).single())) : Promise.resolve(null), aid && zoneUse ? getEval(aid).catch(() => []) : Promise.resolve([])]);
+  const Z = zoneUse ? runZones(ev) : null, ZCOL = ['#9a9aa3', '#1f9d55', '#c98a00', '#e0565f', '#e63946'];
+  const sets = ex.reduce((a, e) => a + (+e.sets || 0), 0), kinds = {}; ex.forEach(e => { const k = e.kind || 'fuerza'; kinds[k] = (kinds[k] || 0) + 1; });
+  const KN = {fuerza: 'Fuerza', plio: 'Pliometría', sprint: 'Sprint', carrera: 'Carrera', recup: 'Recuperación', otro: 'Otro'};
+  const mainK = Object.entries(kinds).sort((a, b) => b[1] - a[1])[0];
+  const D = {
+   title: R.name || 'Sesión', notes: R.notes || '', logo: LOGO, who: pf ? (pf.full_name || pf.email) : '',
+   dateLong: date ? dt(date).toLocaleDateString('es-ES', {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'}).replace(/^./, c => c.toUpperCase()) : '',
+   sub: Object.entries(kinds).map(([k, n]) => `${KN[k] || k} ${n}`).join('  ·  '),
+   tiles: [['Ejercicios', String(ex.length), ''], ['Series / bloques', String(sets), 'en total'], ['Tipo', R.mode == 'salud' ? 'Salud' : R.mode == 'recuperacion' ? 'Recuperación' : 'Rendimiento', ''], ['Bloque principal', mainK ? KN[mainK[0]] || mainK[0] : '-', mainK ? mainK[1] + ' ejercicio' + (mainK[1] > 1 ? 's' : '') : '']],
+   zones: Z ? {...Z, dateTxt: dt(Z.date).toLocaleDateString('es-ES', {day: 'numeric', month: 'long'})} : null, zonesUsed: zoneUse, zp: zPace, zh: zHr,
+   legend: {rpe: ex.some(e => /RPE/i.test(e.intensity || '') || e.kind == 'carrera'), rir: ex.some(e => e.rir)},
+   ex: ex.map(e => { const m = /^Z([1-5])/.exec(e.intensity || ''), z = m && Z ? Z.z[m[1] - 1] : null; return {name: e.name, kind: e.kind || 'fuerza', sets: e.sets, reps: e.reps, dose: (e.sets > 1 ? e.sets + ' x ' : '') + (e.reps || ''), intensity: e.intensity || '', rir: e.rir || '', rest: e.rest || '', notes: e.notes || '', video: /^https?:\/\//.test(e.video_url || '') ? e.video_url : '', zoneTxt: z ? `${z.id} ${z.n}: ${zPace(z)} /km${z.h2 ? ' · FC ' + zHr(z) + ' lpm' : ''} · RPE ${z.rpe}` : '', zoneCol: m ? ZCOL[m[1] - 1] : ''}; })
+  };
+  const bytes = await buildSessionPdf(PL, D), url = URL.createObjectURL(new Blob([bytes], {type: 'application/pdf'})), lk = document.createElement('a');
+  lk.href = url; lk.download = 'Sesion_' + slug(R.name || 'sesion') + (date ? '_' + date : '') + '.pdf'; document.body.appendChild(lk); lk.click(); setTimeout(() => { URL.revokeObjectURL(url); lk.remove(); }, 4000);
+ } catch (e) { console.error(e); toast('No se pudo generar el PDF'); }
+}
+async function sesPdfId(rid, aid, date) { try { const R = await q(DB.from('routines').select('name,notes,mode,athlete_id,routine_exercises(id,position,name,sets,reps,rir,video_url,notes,kind,intensity,rest)').eq('id', rid).single()); sesPdf(R, aid || R.athlete_id || null, date || null); } catch (e) { toast('No se pudo cargar la sesión'); } }
+
 /* ===== INFORME PDF (pdf-lib) =====
    buildReport(PDFLib, R) -> Uint8Array
    R lo prepara la app (makePdf): aquí solo se maqueta. */
