@@ -1519,6 +1519,20 @@ function vidBox(e, R) {
   <input id="${id}" type="file" accept="video/*" class="hidden" onchange="vidUp(this, '${e.id}', '${R && R.id ? R.id : ''}')" data-n="${esc(e.name)}">
   <div class="flex gap-2 mt-2.5 flex-wrap"><button class="btn text-sm flex-1" onclick="document.getElementById('${id}').click()">${v ? 'Cambiar vídeo' : 'Grabar o subir vídeo'}</button>${v ? `<button class="btn2 text-sm" onclick="vidPlay('${v.id}')">Verlo</button><button class="btn2 text-sm text-red-300" onclick="vidDel('${v.id}')" aria-label="Borrar vídeo">✕</button>` : ''}</div>
   <p id="${id}_st" class="text-[11px] text-zinc-400 mt-1.5 hidden"></p></div>`; }
+/* Lee la cabecera del vídeo (MP4/MOV) para saber sus fotogramas por segundo, sin decodificarlo */
+async function vidFps(f) { try {
+ const rd = async (o, n) => new Uint8Array(await f.slice(o, o + n).arrayBuffer()), u32 = (b, o) => ((b[o] << 24) >>> 0) + (b[o + 1] << 16) + (b[o + 2] << 8) + b[o + 3], ty = (b, o) => String.fromCharCode(b[o], b[o + 1], b[o + 2], b[o + 3]);
+ let o = 0, moov = null; while (o + 8 <= f.size) { const h = await rd(o, 16); let sz = u32(h, 0), hd = 8; if (sz == 1) { sz = u32(h, 8) * 4294967296 + u32(h, 12); hd = 16; } else if (sz == 0) sz = f.size - o; if (sz < 8) break; if (ty(h, 4) == 'moov') { if (sz > 20e6) return 0; moov = await rd(o + hd, sz - hd); break; } o += sz; }
+ if (!moov) return 0; let best = 0;
+ const walk = (b, s, e, tk) => { let p = s; while (p + 8 <= e) { const sz = u32(b, p), t = ty(b, p + 4); if (sz < 8 || p + sz > e) break; const q = p + 8;
+  if (t == 'trak') { const T = {}; walk(b, q, p + sz, T); if (T.vide && T.ts && T.dur && T.n) best = Math.max(best, T.n / (T.dur / T.ts)); }
+  else if (['mdia', 'minf', 'stbl'].includes(t)) walk(b, q, p + sz, tk);
+  else if (tk && t == 'mdhd') { if (b[q] == 1) { tk.ts = u32(b, q + 20); tk.dur = u32(b, q + 24) * 4294967296 + u32(b, q + 28); } else { tk.ts = u32(b, q + 12); tk.dur = u32(b, q + 16); } }
+  else if (tk && t == 'hdlr' && tk.vide == null) tk.vide = ty(b, q + 8) == 'vide';
+  else if (tk && t == 'stsz') tk.n = u32(b, q + 8);
+  p += sz; } };
+ walk(moov, 0, moov.length, null); return Math.round(best);
+} catch (e) { return 0; } }
 /* Convierte cualquier vídeo del móvil (4K, HEVC, .mov) en un MP4 ligero de 720p que se ve y se descarga en cualquier sitio */
 async function vidPrep(f, prog) {
  if (!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) return null;
@@ -1546,7 +1560,9 @@ async function vidUp(inp, exId, rid) {
  const btns = inp.parentElement.querySelectorAll('button'); btns.forEach(b => b.disabled = true); st.classList.remove('hidden');
  const fail = (m) => { st.textContent = m; toast(m); btns.forEach(b => b.disabled = false); inp.value = ''; };
  let body = f, type = f.type || 'video/mp4', ext = ((f.name || '').split('.').pop() || 'mp4').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5) || 'mp4';
- try { st.textContent = 'Preparando el vídeo… deja la app abierta.'; const P = await vidPrep(f, p => st.textContent = `Preparando el vídeo… ${p}% · deja la app abierta`); if (P) { body = P.blob; type = P.type; ext = P.ext; } }
+ const fps = await vidFps(f);
+ if (fps >= 50) { if (f.size > VMAX) return fail(`Es un vídeo a cámara lenta (${fps} fps) de ${mb(f.size)} y el máximo son 50 MB. Recórtalo a solo el salto (3–5 s) y súbelo otra vez.`); }
+ else try { st.textContent = 'Preparando el vídeo… deja la app abierta.'; const P = await vidPrep(f, p => st.textContent = `Preparando el vídeo… ${p}% · deja la app abierta`); if (P) { body = P.blob; type = P.type; ext = P.ext; } }
  catch (e) { if (e && e.long) return fail(`El vídeo dura ${Math.round(e.long)} s. Recórtalo a menos de 3 minutos y súbelo otra vez.`); console.warn(e); }
  if (body.size > VMAX) return fail(`Ocupa ${mb(body.size)} y el máximo son 50 MB. Recórtalo o grábalo en 1080p en vez de 4K.`);
  const path = `${ME.id}/${S.date}/${exId}-${Date.now()}.${ext}`; st.textContent = `Subiendo ${mb(body.size)}… no cierres la app.`;
