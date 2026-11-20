@@ -1515,23 +1515,48 @@ async function vSigned(path, dl) { const r = await DB.storage.from(VB).createSig
 function vidBox(e, R) {
  const v = (window._vids || []).filter(x => x.exercise_id == e.id).pop(), id = 'vu_' + e.id;
  return `<div class="mt-3 rounded-xl px-3 py-3" style="background:#e6394612;border:1px solid #e6394666">
-  <div class="flex items-center gap-2"><span class="w-8 h-8 rounded-lg flex items-center justify-center bg-[#e63946] text-white shrink-0"><span style="width:18px;height:18px;display:block">${ic('cam')}</span></span><div class="flex-1 min-w-0"><p class="text-sm font-black">${v ? 'Vídeo enviado' : 'Tu entrenador quiere ver un vídeo'}</p><p class="text-[11px] text-zinc-400">${v ? (v.seen_at ? 'Marco ya lo ha visto' : 'Pendiente de que Marco lo vea') + ' · ' + mb(v.size_bytes || 0) : 'Graba una serie entera de lado, que se vea el cuerpo completo. Máximo 30–40 s.'}</p></div>${v ? '<span class="text-emerald-400 font-black text-lg">✓</span>' : ''}</div>${v && v.coach_note ? `<p class="text-[13px] mt-2 leading-snug"><b class="text-[#ff6b78]">Corrección de Marco:</b> ${esc(v.coach_note)}</p>` : ''}
+  <div class="flex items-center gap-2"><span class="w-8 h-8 rounded-lg flex items-center justify-center bg-[#e63946] text-white shrink-0"><span style="width:18px;height:18px;display:block">${ic('cam')}</span></span><div class="flex-1 min-w-0"><p class="text-sm font-black">${v ? 'Vídeo enviado' : 'Tu entrenador quiere ver un vídeo'}</p><p class="text-[11px] text-zinc-400">${v ? (v.seen_at ? 'Marco ya lo ha visto' : 'Pendiente de que Marco lo vea') + ' · ' + mb(v.size_bytes || 0) : 'Graba una serie entera de lado, con el cuerpo completo. Hasta 3 min; la app lo comprime sola.'}</p></div>${v ? '<span class="text-emerald-400 font-black text-lg">✓</span>' : ''}</div>${v && v.coach_note ? `<p class="text-[13px] mt-2 leading-snug"><b class="text-[#ff6b78]">Corrección de Marco:</b> ${esc(v.coach_note)}</p>` : ''}
   <input id="${id}" type="file" accept="video/*" class="hidden" onchange="vidUp(this, '${e.id}', '${R && R.id ? R.id : ''}')" data-n="${esc(e.name)}">
   <div class="flex gap-2 mt-2.5 flex-wrap"><button class="btn text-sm flex-1" onclick="document.getElementById('${id}').click()">${v ? 'Cambiar vídeo' : 'Grabar o subir vídeo'}</button>${v ? `<button class="btn2 text-sm" onclick="vidPlay('${v.id}')">Verlo</button><button class="btn2 text-sm text-red-300" onclick="vidDel('${v.id}')" aria-label="Borrar vídeo">✕</button>` : ''}</div>
   <p id="${id}_st" class="text-[11px] text-zinc-400 mt-1.5 hidden"></p></div>`; }
+/* Convierte cualquier vídeo del móvil (4K, HEVC, .mov) en un MP4 ligero de 720p que se ve y se descarga en cualquier sitio */
+async function vidPrep(f, prog) {
+ if (!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) return null;
+ const mt = ['video/mp4;codecs=avc1.42E01F', 'video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].find(t => { try { return MediaRecorder.isTypeSupported(t); } catch (e) { return false; } }); if (!mt) return null;
+ const url = URL.createObjectURL(f), v = document.createElement('video');
+ v.muted = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.preload = 'auto'; v.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:0.01;pointer-events:none'; v.src = url; document.body.appendChild(v);
+ try {
+  await new Promise((ok, ko) => { v.onloadedmetadata = ok; v.onerror = () => ko(new Error('meta')); setTimeout(() => ko(new Error('meta-timeout')), 20000); });
+  const dur = v.duration; if (!isFinite(dur) || dur <= 0 || !v.videoWidth) return null;
+  if (dur > 180) { const e = new Error('long'); e.long = dur; throw e; }
+  const sc = Math.min(1, 1280 / Math.max(v.videoWidth, v.videoHeight)), w = Math.round(v.videoWidth * sc / 2) * 2, h = Math.round(v.videoHeight * sc / 2) * 2;
+  const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d');
+  const rec = new MediaRecorder(c.captureStream(30), {mimeType: mt, videoBitsPerSecond: 2500000}), parts = [];
+  rec.ondataavailable = e => { if (e.data && e.data.size) parts.push(e.data); }; const stopped = new Promise(ok => rec.onstop = ok);
+  let run = true; const loop = () => { if (!run) return; x.drawImage(v, 0, 0, w, h); prog(Math.min(99, Math.round(v.currentTime / dur * 100))); requestAnimationFrame(loop); };
+  const ended = new Promise(ok => v.onended = ok);
+  await v.play(); x.drawImage(v, 0, 0, w, h); rec.start(1000); loop();
+  await ended; x.drawImage(v, 0, 0, w, h); await new Promise(r => setTimeout(r, 250)); run = false; rec.stop(); await stopped;
+  const type = mt.split(';')[0], blob = new Blob(parts, {type}); if (blob.size < 5000) return null;
+  return {blob, type, ext: type == 'video/mp4' ? 'mp4' : 'webm'};
+ } finally { URL.revokeObjectURL(url); v.remove(); } }
 async function vidUp(inp, exId, rid) {
  const f = inp.files && inp.files[0], st = document.getElementById(inp.id + '_st'); if (!f) return;
  if (!/^video\//.test(f.type || 'video/mp4')) { toast('Ese archivo no es un vídeo'); inp.value = ''; return; }
- if (f.size > VMAX) { toast(`Ocupa ${mb(f.size)}: el máximo son 50 MB. Graba un clip más corto (unos 30 s) o en 720p.`); inp.value = ''; return; }
- const ext = ((f.name || '').split('.').pop() || 'mp4').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5) || 'mp4', path = `${ME.id}/${S.date}/${exId}-${Date.now()}.${ext}`;
- const btns = inp.parentElement.querySelectorAll('button'); btns.forEach(b => b.disabled = true); st.classList.remove('hidden'); st.textContent = `Subiendo ${mb(f.size)}… no cierres la app.`;
+ const btns = inp.parentElement.querySelectorAll('button'); btns.forEach(b => b.disabled = true); st.classList.remove('hidden');
+ const fail = (m) => { st.textContent = m; toast(m); btns.forEach(b => b.disabled = false); inp.value = ''; };
+ let body = f, type = f.type || 'video/mp4', ext = ((f.name || '').split('.').pop() || 'mp4').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5) || 'mp4';
+ try { st.textContent = 'Preparando el vídeo… deja la app abierta.'; const P = await vidPrep(f, p => st.textContent = `Preparando el vídeo… ${p}% · deja la app abierta`); if (P) { body = P.blob; type = P.type; ext = P.ext; } }
+ catch (e) { if (e && e.long) return fail(`El vídeo dura ${Math.round(e.long)} s. Recórtalo a menos de 3 minutos y súbelo otra vez.`); console.warn(e); }
+ if (body.size > VMAX) return fail(`Ocupa ${mb(body.size)} y el máximo son 50 MB. Recórtalo o grábalo en 1080p en vez de 4K.`);
+ const path = `${ME.id}/${S.date}/${exId}-${Date.now()}.${ext}`; st.textContent = `Subiendo ${mb(body.size)}… no cierres la app.`;
  try {
-  const up = await DB.storage.from(VB).upload(path, f, {contentType: f.type || 'video/mp4', upsert: false}); if (up.error) throw up.error;
+  const up = await DB.storage.from(VB).upload(path, body, {contentType: type, upsert: false}); if (up.error) throw up.error;
   const old = (window._vids || []).filter(x => x.exercise_id == exId);
-  const r = await DB.from('exercise_videos').insert({athlete_id: ME.id, routine_id: rid || null, exercise_id: exId, exercise_name: (inp.dataset.n || 'Ejercicio').slice(0, 160), log_date: S.date, path, size_bytes: f.size, mime: (f.type || '').slice(0, 59) || null}); if (r.error) { await DB.storage.from(VB).remove([path]); throw r.error; }
+  const r = await DB.from('exercise_videos').insert({athlete_id: ME.id, routine_id: rid || null, exercise_id: exId, exercise_name: (inp.dataset.n || 'Ejercicio').slice(0, 160), log_date: S.date, path, size_bytes: body.size, mime: type.slice(0, 59)}); if (r.error) { await DB.storage.from(VB).remove([path]); throw r.error; }
   for (const o of old) { await DB.storage.from(VB).remove([o.path]); await DB.from('exercise_videos').delete().eq('id', o.id); }
   toast('Vídeo enviado a Marco'); refresh();
- } catch (e) { console.error(e); st.textContent = 'No se ha podido subir. Revisa la conexión e inténtalo de nuevo.'; toast('No se ha podido subir el vídeo'); btns.forEach(b => b.disabled = false); inp.value = ''; } }
+ } catch (e) { console.error(e); fail('No se ha podido subir. Revisa la conexión e inténtalo de nuevo.'); } }
 async function vidRow(id) { return q(DB.from('exercise_videos').select('*').eq('id', id).single()); }
 async function vidPlay(id) {
  try { const v = await vidRow(id), url = await vSigned(v.path), coach = ME.role == 'coach';
